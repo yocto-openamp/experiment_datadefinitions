@@ -13,9 +13,12 @@ def test_datamodel_fields_are_set() -> None:
 EXPECTED_C_STRUCT = """
 typedef struct
 {
-    char name[65];      // Up to 64 characters + null terminator
-    uint32_t value;     // Unsigned 32-bit integer
-    double i_param;     // Double-precision floating-point
+    // Name of the controlled axis
+    char name[65];
+    // [steps (4096 steps = 1 revolution)] 4096 steps per revolution
+    uint32_t value;
+    // [V] Integral gain (I) of the PID controller
+    double i_param;
 } ModelPidController_t;
 """
 
