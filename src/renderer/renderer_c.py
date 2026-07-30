@@ -22,7 +22,7 @@ class RendererC:
                 char name[65];      // Up to 64 characters + null terminator
                 uint32_t value;     // Unsigned 32-bit integer
                 double i_param;     // Double-precision floating-point
-            } MyStruct;
+            } ModelPidController_t;
         """
         lines = ["", "typedef struct", "{"]
 
@@ -36,5 +36,6 @@ class RendererC:
             c_decl, c_comment = self._TYPE_MAP[annotation]
             lines.append(f"    {c_decl.format(name=field_name)}{c_comment}")
 
-        lines.extend(["} MyStruct;", ""])
+        struct_name = type(self.model).__name__
+        lines.extend([f"}} {struct_name}_t;", ""])
         return "\n".join(lines)

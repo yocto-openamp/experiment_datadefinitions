@@ -16,7 +16,7 @@ typedef struct
     char name[65];      // Up to 64 characters + null terminator
     uint32_t value;     // Unsigned 32-bit integer
     double i_param;     // Double-precision floating-point
-} MyStruct;
+} ModelPidController_t;
 """
 
 
