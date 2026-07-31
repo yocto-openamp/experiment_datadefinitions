@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import ctypes
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from pydantic import BaseModel
+
+from utils.util_pydantic import FieldInfoIter
 
 
 @dataclass(frozen=True)
@@ -24,7 +28,6 @@ class TypeSourceC:
     to_ctypes: Callable[[object], object]
     from_ctypes: Callable[[object], object]
 
-
     @staticmethod
     def decode_c_string(value: object) -> str:
         if isinstance(value, bytes):
@@ -37,11 +40,12 @@ class TypeSourceC:
             return f'"{value}"'
         return str(value)
 
+class TypeMapC(dict[type, TypeSourceC]):
+    pass
 
-class RendererC:
-    """Render a simple C struct definition from a Pydantic model."""
 
-    _TYPE_MAP = {
+TYPE_MAP_C = TypeMapC(
+    {
         str: TypeSourceC(
             c_source="char {name}[32];",
             ctypes_type=ctypes.c_char * 32,
@@ -61,6 +65,12 @@ class RendererC:
             from_ctypes=lambda value: float(value),
         ),
     }
+)
+
+
+
+class RendererC:
+    """Render a simple C struct definition from a Pydantic model."""
 
     def __init__(self, model: BaseModel) -> None:
         self.model = model
@@ -79,21 +89,18 @@ class RendererC:
         """
         lines = ["", "typedef struct", "{"]
 
-        for field_name, field_info in type(self.model).model_fields.items():
-            annotation = field_info.annotation
-            if annotation not in self._TYPE_MAP:
+        for field in FieldInfoIter.iter_model(type(self.model)):
+            annotation = field.field_info.annotation
+            if annotation not in TYPE_MAP_C:
                 raise ValueError(
-                    f"Unsupported field type for '{field_name}': {annotation}"
+                    f"Unsupported field type for '{field.field_name}': {annotation}"
                 )
 
-            json_schema_extra = field_info.json_schema_extra or {}
-            comment = self._render_comment(
-                field_name=field_name, extra=json_schema_extra,
-            )
+            comment = self._render_comment(field            )
             if comment:
                 lines.append(f"    // {comment}")
 
-            c_decl = self._TYPE_MAP[annotation].c_source.format(name=field_name)
+            c_decl = TYPE_MAP_C[annotation].c_source.format(name=field.field_name)
             lines.append(f"    {c_decl}")
 
         struct_name = type(self.model).__name__
@@ -106,21 +113,21 @@ class RendererC:
 
         lines = ["", f"static const {struct_name}_t {var_name} = {{"]
 
-        for field_name, field_info in type(self.model).model_fields.items():
-            annotation = field_info.annotation
-            if annotation not in self._TYPE_MAP:
+        for field in FieldInfoIter.iter_model(type(self.model)):
+            annotation = field.field_info.annotation
+            if annotation not in TYPE_MAP_C:
                 raise ValueError(
-                    f"Unsupported field type for '{field_name}': {annotation}"
+                    f"Unsupported field type for '{field.field_name}': {annotation}"
                 )
 
-            json_schema_extra = field_info.json_schema_extra or {}
+            json_schema_extra = field.field_info.json_schema_extra or {}
             c_init_value = json_schema_extra.get("CInitValue")
             if c_init_value is None:
-                if field_info.is_required():
+                if field.field_info.is_required():
                     raise ValueError(
-                        f"Field '{field_name}' is required and has no default/CInitValue"
+                        f"Field '{field.field_name}' is required and has no default/CInitValue"
                     )
-                c_init_value = TypeSourceC.to_c_literal(field_info.default)
+                c_init_value = TypeSourceC.to_c_literal(field.field_info.default)
 
             lines.append(f"    {c_init_value},")
 
@@ -133,12 +140,12 @@ class RendererC:
     def serialize_to_c(self, model: BaseModel) -> bytes:
         assert type(self.model) is type(model)
         instance = self.ctypes_model()
-        for field_name, field_info in type(self.model).model_fields.items():
-            value = getattr(model, field_name)
-            type_source = self._type_source_for_annotation(field_info.annotation)
+        for field in FieldInfoIter.iter_model(type(self.model)):
+            value = getattr(model, field.field_name)
+            type_source = self._type_source_for_annotation(field.field_info.annotation)
             setattr(
                 instance,
-                field_name,
+                field.field_name,
                 type_source.to_ctypes(value),
             )
 
@@ -148,27 +155,22 @@ class RendererC:
         instance = self.ctypes_model.from_buffer_copy(serizalized)
         model_data = {}
 
-        for field_name, field_info in type(self.model).model_fields.items():
-            raw_value = getattr(instance, field_name)
-            type_source = self._type_source_for_annotation(field_info.annotation)
-            model_data[field_name] = type_source.from_ctypes(raw_value)
+        for field in FieldInfoIter.iter_model(type(self.model)):
+            raw_value = getattr(instance, field.field_name)
+            type_source = self._type_source_for_annotation(field.field_info.annotation)
+            model_data[field.field_name] = type_source.from_ctypes(raw_value)
 
         model_type = type(self.model)
         return model_type(**model_data)
 
     @staticmethod
-    def _render_comment(field_name: str, extra: dict) -> str:
-        comment = extra.get("Comment", "")
-        unit = extra.get("Unit", "")
+    def _render_comment(field: FieldInfoIter) -> str:
+        extra = field.schema_extra
 
-        if field_name == "value":
-            if "4096 steps = 1 revolution" in unit:
-                comment = "4096 steps per revolution"
+        if extra.unit:
+            return f"[{extra.unit}] {extra.comment}".strip()
 
-        if unit:
-            return f"[{unit}] {comment}".rstrip()
-
-        return comment
+        return extra.comment
 
     @staticmethod
     def _model_var_name(model_name: str) -> str:
@@ -185,19 +187,18 @@ class RendererC:
         Create the ctypes structure matching the C layout of the model.
         """
         fields = []
-        for field_name, field_info in type(self.model).model_fields.items():
-            annotation = field_info.annotation
+        for field in FieldInfoIter.iter_model(type(self.model)):
+            annotation = field.field_info.annotation
             ctypes_type = self._type_source_for_annotation(annotation).ctypes_type
-            fields.append((field_name, ctypes_type))
+            fields.append((field.field_name, ctypes_type))
 
         class SerializedModel(ctypes.Structure):
             _fields_ = fields
 
         return SerializedModel
 
-
     @classmethod
     def _type_source_for_annotation(cls, annotation: object) -> TypeSourceC:
-        if annotation not in cls._TYPE_MAP:
+        if annotation not in TYPE_MAP_C:
             raise ValueError(f"Unsupported field type for serialization: {annotation}")
-        return cls._TYPE_MAP[annotation]
+        return TYPE_MAP_C[annotation]

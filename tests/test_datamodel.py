@@ -1,11 +1,10 @@
-import ctypes
 
-from datamodel import pid_controller
+from datamodel import unittests_simple
 from renderer import renderer_c
 
 
 def test_datamodel_fields_are_set() -> None:
-    model = pid_controller.ModelPidController(name="sensor", value=42, i_param=3.14)
+    model = unittests_simple.ModelPidController(name="sensor", value=42, i_param=3.14)
 
     assert model.name == "sensor"
     assert model.value == 42
@@ -17,7 +16,7 @@ typedef struct
 {
     // Name of the controlled axis
     char name[32];
-    // [steps (4096 steps = 1 revolution)] 4096 steps per revolution
+    // [steps (4096 steps = 1 revolution)] Encoder steps
     uint32_t value;
     // [s] Integral gain (I) of the PID controller
     double i_param;
@@ -34,7 +33,7 @@ static const ModelPidController_t pid_controller = {
 
 
 def test_renderer_c() -> None:
-    model = pid_controller.ModelPidController(name="sensor", value=42, i_param=3.14)
+    model = unittests_simple.ModelPidController(name="sensor", value=42, i_param=3.14)
     renderer = renderer_c.RendererC(model=model)
 
     c_struct = renderer.render_c_struct()
@@ -43,7 +42,7 @@ def test_renderer_c() -> None:
     c_initializer = renderer.render_c_initializer()
     assert c_initializer == EXPECTED_C_INITIALIZER
 
-    model2 = pid_controller.ModelPidController(name="sensor", value=43, i_param=3.141)
+    model2 = unittests_simple.ModelPidController(name="sensor", value=43, i_param=3.141)
     serialized = renderer.serialize_to_c(model=model2)
 
     decoded = renderer.ctypes_model.from_buffer_copy(serialized)
@@ -52,7 +51,7 @@ def test_renderer_c() -> None:
     assert decoded.i_param == 3.141
 
     model3 = renderer.deserialize_from_c(serizalized=serialized)
-    assert isinstance(model3, pid_controller.ModelPidController)
+    assert isinstance(model3, unittests_simple.ModelPidController)
     assert model3.name == model2.name
     assert model3.value == model2.value
     assert model3.i_param == model2.i_param

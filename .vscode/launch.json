@@ -17,7 +17,7 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "webui.app:fastapi_app",
+                "webui.webui:app",
                 "--reload"
             ],
             "env": {
@@ -31,7 +31,7 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "main:app",
+                "webui:webui",
                 "--reload"
             ],
             "jinja": true
