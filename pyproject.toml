@@ -9,6 +9,7 @@ description = "Minimal Python skeleton with Pydantic and pytest."
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.0",
+    "nicegui>=2.0",
 ]
 
 [project.optional-dependencies]
