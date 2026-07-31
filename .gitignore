@@ -217,3 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 uv.lock
+**/generated_*
+tests/src_c/dump_values

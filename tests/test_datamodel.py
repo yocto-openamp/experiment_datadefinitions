@@ -19,7 +19,7 @@ typedef struct
     char name[32];
     // [steps (4096 steps = 1 revolution)] 4096 steps per revolution
     uint32_t value;
-    // [V] Integral gain (I) of the PID controller
+    // [s] Integral gain (I) of the PID controller
     double i_param;
 } ModelPidController_t;
 """

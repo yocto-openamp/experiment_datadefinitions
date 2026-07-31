@@ -20,7 +20,7 @@ class ModelPidController(BaseModel):
     i_param: float = Field(
         default=0.25,
         json_schema_extra={
-            "Unit": "V",
+            "Unit": "s",
             "Comment": "Integral gain (I) of the PID controller",
-        }
+        },
     )
