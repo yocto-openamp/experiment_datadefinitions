@@ -1,211 +1,153 @@
-"""NiceGUI application scaffold for the PID controller model."""
-
 from __future__ import annotations
 
-import dataclasses
+import contextlib
+import logging
 import typing
 
-import nicegui
-import nicegui.element
 import uvicorn
 from fastapi import FastAPI
 from nicegui import ui
 
-import datamodel.pid_controller as pid_controller_module
-from utils.util_pydantic import FieldInfoIter
+from datamodel.pid_controller import ModelSystemDual
+from utils import util_datasources, util_observer, util_pydantic
+from webui.widgets import simple_editors
 
-app = FastAPI()
+logger = logging.getLogger(__file__)
 
 
-@dataclasses.dataclass
 class WebUIState:
-    model: pid_controller_module.ModelPidController = dataclasses.field(
-        default_factory=pid_controller_module.ModelPidController
-    )
+    def __init__(self) -> None:
+        self.observer = util_observer.Observer()
+        self.model = ModelSystemDual()
+        self.hierarchy = util_pydantic.ModelHierarchy.factory(model=self.model)
+        self.uart_connected = False
+        for element in self.hierarchy.all_elements:
+            self.observer.register_with_value(path=element.path, value=element.value)
 
+        self.hierarchy_text = "..."
 
-SHARED_STATE = WebUIState()
-FIELD_WIDGETS: dict[str, list[typing.Any]] = {}
-MODEL_STATE_WIDGETS: list[typing.Any] = []
-IS_BROADCASTING = False
+        def observer_callback(path: str, value: typing.Any) -> None:
+            def x(value: typing.Any) -> str:
+                if isinstance(value, int):
+                    return f"int({value})"
+                if isinstance(value, float):
+                    return f"float({value})"
+                return f"'{value}'"
 
-
-def _attach_comment_tooltip(
-    widget: nicegui.element.Element,
-    field: FieldInfoIter,
-) -> None:
-    if field.schema_extra.comment:
-        widget.tooltip(field.schema_extra.comment)
-
-
-def _create_text_field(
-    state: WebUIState,
-    field: FieldInfoIter,
-) -> nicegui.element.Element:
-    unit = field.schema_extra.unit
-    with ui.row().classes("w-full items-center gap-0 p-0"):
-        ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
-        widget = (
-            ui.input(
-                value=getattr(state.model, field.field_name),
-                suffix=unit,
-                on_change=lambda event: _update_model_field(
-                    state, field.field_name, event.value
-                ),
+            self.hierarchy_text = "\n".join(
+                [f"{f.path} {x(f.value)}" for f in webui_state.hierarchy.all_elements]
             )
-            .props("borderless dense")
-            .classes("flex-1 min-h-0 p-0")
-            .bind_value(state.model, field.field_name)
-        )
-    _attach_comment_tooltip(widget, field=field)
-    return widget
+
+        self.observer.register_observer_callback(callback=observer_callback)
 
 
-def _create_integer_field(
-    state: WebUIState,
-    field: FieldInfoIter,
-) -> nicegui.element.Element:
-    unit = field.schema_extra.unit
-    schema = field.field_info.json_schema_extra
-    with ui.row().classes("w-full items-center gap-0 p-0"):
-        ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
-        widget = (
-            ui.number(
-                value=getattr(state.model, field.field_name),
-                min=schema.get("minimum"),
-                max=schema.get("maximum"),
-                step=1,
-                suffix=unit,
-                on_change=lambda event: _update_model_field(
-                    state, field.field_name, event.value
-                ),
-            )
-            .props("borderless dense")
-            .classes("flex-1 min-h-0 p-0")
-            .bind_value(state.model, field.field_name)
-        )
-    _attach_comment_tooltip(widget, field=field)
-    return widget
+webui_state = WebUIState()
 
 
-def _create_float_field(
-    state: WebUIState,
-    field: FieldInfoIter,
-) -> nicegui.element.Element:
-    unit = field.schema_extra.unit
-    schema = field.field_info.json_schema_extra
-    with ui.row().classes("w-full items-center gap-0 p-0"):
-        ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
-        widget = (
-            ui.number(
-                value=getattr(state.model, field.field_name),
-                min=schema.get("minimum"),
-                max=schema.get("maximum"),
-                step=0.1,
-                suffix=unit,
-                on_change=lambda event: _update_model_field(
-                    state, field.field_name, event.value
-                ),
-            )
-            .props("borderless dense")
-            .classes("flex-1 min-h-0 p-0")
-            .bind_value(state.model, field.field_name)
-        )
-    _attach_comment_tooltip(widget, field=field)
-    return widget
+@contextlib.asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # loop = asyncio.get_running_loop()
 
-
-class TypeMapNiceGUI(dict[type, typing.Callable]):
-    pass
-
-
-TYPE_MAP_NICE_GUI = TypeMapNiceGUI(
-    {
-        str: _create_text_field,
-        int: _create_integer_field,
-        float: _create_float_field,
-    }
-)
-
-def _register_widget(field_name: str, widget: nicegui.element.Element) -> None:
-    FIELD_WIDGETS.setdefault(field_name, []).append(widget)
-
-
-def _register_model_state_widget(widget: typing.Any) -> None:
-    MODEL_STATE_WIDGETS.append(widget)
-
-
-def _broadcast_field_update(field_name: str, value: typing.Any) -> None:
-    global IS_BROADCASTING
-    IS_BROADCASTING = True
+    await util_datasources.namedpipe_task(observer=webui_state.observer)
     try:
-        for widget in FIELD_WIDGETS.get(field_name, []):
-            try:
-                current_value = getattr(widget, "value", None)
-                if current_value != value:
-                    widget.set_value(value)
-            except RuntimeError:
-                # Ignore stale widgets from disconnected clients.
-                continue
+        yield
     finally:
-        IS_BROADCASTING = False
+        logger.info("Done")
 
 
-def _broadcast_model_state(state: WebUIState) -> None:
-    content = state.model.model_dump_json(indent=2)
-    for widget in MODEL_STATE_WIDGETS:
-        try:
-            widget.set_content(content)
-        except RuntimeError:
-            # Ignore stale widgets from disconnected clients.
-            continue
+app = FastAPI(lifespan=lifespan)
 
 
-def _update_model_field(state: WebUIState, name: str, value: typing.Any) -> None:
-    if IS_BROADCASTING:
-        return
+async def create_app() -> None:
+    """PID Controller Web UI"""
 
-    setattr(state.model, name, value)
-    new_value = getattr(state.model, name)
-    _broadcast_field_update(field_name=name, value=new_value)
-    _broadcast_model_state(state=state)
-    print(
-        f"[webui] model updated: {name}={new_value!r} | model={state.model.model_dump_json()}",
-        flush=True,
-    )
-
-
-def create_app(state: WebUIState | None = None) -> WebUIState:
-    """Build the NiceGUI screen for the PID controller model."""
-    state = state or WebUIState()
-
-    with ui.column().classes("w-full max-w-2xl gap-0 p-4"):
-        ui.label("PID Controller").classes("text-2xl font-bold")
-        ui.label("Edit the model fields below.").classes("text-sm text-gray-600")
-
-        for field in FieldInfoIter.iter_model(type(state.model)):
-            field_type = field.field_info.annotation
+    # with ui.column().classes("w-full max-w-2xl gap-0 p-4"):
+    def dump_elements(mh: util_pydantic.ModelHierarchy) -> None:
+        assert isinstance(mh, util_pydantic.ModelHierarchy)
+        for path, item in mh.elements.items():
+            print(f"element:  {path} - {item.value_type_name}")
             try:
-                f_create_field = TYPE_MAP_NICE_GUI[field_type]
+                f_create_field = simple_editors.TYPE_MAP_NICE_GUI[item.value_type]
             except KeyError:
-                ui.label(f"{field.title}: unsupported field type {field_type!r}")
+                ui.label(
+                    f"{item.field_name}: unsupported field type {item.value_type_name}"
+                )
                 continue
-            widget = f_create_field(state, field)
-            _register_widget(field_name=field.field_name, widget=widget)
 
-        ui.separator()
-        ui.label("Current model state").classes("text-lg font-semibold")
-        model_state_widget = ui.code(
-            state.model.model_dump_json(indent=2), language="json"
-        )
-        _register_model_state_widget(model_state_widget)
+            with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
+                f_create_field(observer=webui_state.observer, path=path, field=item)
 
-    return state
+    def dump(mh: util_pydantic.ModelHierarchy) -> None:
+        assert isinstance(mh, util_pydantic.ModelHierarchy)
+
+        use_tabs = False
+        if use_tabs:
+            # Tabs
+            dict_tabs = {}
+
+            with ui.tabs().classes("w-full") as tabs:
+                for path, item in mh.compounds.items():
+                    # dict_tabs[path] = ui.tab(f"{path}: {item.title}")
+                    dict_tabs[path] = ui.tab(item.title)
+
+                dict_tabs["/custom"] = ui.tab("customized")
+
+            with ui.tab_panels(tabs).classes("w-full"):
+                for path, item in mh.compounds.items():
+                    current_tab = dict_tabs[path]
+                    with ui.tab_panel(current_tab).classes("w-full"):
+                        print(f"compount: {path} - {item.model!r}")
+                        dump_elements(mh=item)
+
+                current_tab = dict_tabs["/custom"]
+                with ui.tab_panel(current_tab).classes("w-full"):
+                    ui.label("Customized")
+
+        else:
+            # Expansion
+            for path, item in mh.compounds.items():
+                with ui.expansion(item.title).classes("w-full"):
+                    print(f"compount: {path} - {item.model!r}")
+                    dump_elements(mh=item)
+
+            with ui.expansion("Custom").classes("w-full"):
+                with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
+                    path = "/common/debuglevel"
+                    simple_editors.create_selection_field(
+                        options={
+                            0: "off",
+                            1: "debug",
+                            2: "info",
+                            3: "warn",
+                            4: "error",
+                        },
+                        observer=webui_state.observer,
+                        path=path,
+                        field=mh.get_by_path(path).field,
+                    )
+
+                with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
+                    path = "/axis_x/value"
+                    simple_editors.create_slider_field(
+                        observer=webui_state.observer,
+                        path=path,
+                        field=mh.get_by_path(path).field,
+                    )
+
+                with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
+                    ui.code().bind_content_from(webui_state, "hierarchy_text")
+
+    ui.checkbox(
+        "UART connected",
+        on_change=lambda event: webui_state.observer.set_quality_known(event.value),
+    ).bind_value(webui_state, "uart_connected")
+
+    dump(mh=webui_state.hierarchy)
 
 
 @ui.page("/")
-def index() -> None:
-    create_app(state=SHARED_STATE)
+async def index() -> None:
+    await create_app()
 
 
 ui.run_with(app, title="PID Controller Web UI")

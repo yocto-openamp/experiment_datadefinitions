@@ -21,7 +21,11 @@
                 "--reload"
             ],
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/src"
+                "PYTHONPATH": "${workspaceFolder}/src",
+                // "ENV_UART": "/dev/ttyUSB0",
+                // "ENV_UART": "/dev/pts/6",
+                "ENV_PIPE": "namedpipe",
+                // "ENV_FILE_POLLER": "pollfile",
             },
             "jinja": true
         },

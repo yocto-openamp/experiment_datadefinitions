@@ -4,9 +4,9 @@ from renderer import renderer_c
 
 
 def test_datamodel_fields_are_set() -> None:
-    model = unittests_simple.ModelPidController(name="sensor", value=42, i_param=3.14)
+    model = unittests_simple.ModelPidController(name="Axis Z", value=42, i_param=3.14)
 
-    assert model.name == "sensor"
+    assert model.name == "Axis Z"
     assert model.value == 42
     assert model.i_param == 3.14
 
@@ -25,15 +25,15 @@ typedef struct
 
 EXPECTED_C_INITIALIZER = """
 static const ModelPidController_t pid_controller = {
-    "AxisX",
-    4095,
-    0.25
+    "Axis W",
+    42,
+    3.14
 };
 """
 
 
 def test_renderer_c() -> None:
-    model = unittests_simple.ModelPidController(name="sensor", value=42, i_param=3.14)
+    model = unittests_simple.ModelPidController(name="Axis W", value=42, i_param=3.14)
     renderer = renderer_c.RendererC(model=model)
 
     c_struct = renderer.render_c_struct()

@@ -5,7 +5,7 @@ from utils.util_pydantic import SchemaExtra
 
 class ModelPidController(pydantic.BaseModel):
     name: str = pydantic.Field(
-        default="AxisX",
+        default="AxisXYZ",
         json_schema_extra=SchemaExtra(
             comment="Name of the controlled axis",
         ).dict,

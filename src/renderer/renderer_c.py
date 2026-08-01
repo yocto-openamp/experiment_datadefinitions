@@ -89,7 +89,7 @@ class RendererC:
         """
         lines = ["", "typedef struct", "{"]
 
-        for field in FieldInfoIter.iter_model(type(self.model)):
+        for field in FieldInfoIter.iter_model(self.model):
             annotation = field.field_info.annotation
             if annotation not in TYPE_MAP_C:
                 raise ValueError(
@@ -113,21 +113,19 @@ class RendererC:
 
         lines = ["", f"static const {struct_name}_t {var_name} = {{"]
 
-        for field in FieldInfoIter.iter_model(type(self.model)):
-            annotation = field.field_info.annotation
-            if annotation not in TYPE_MAP_C:
+        for field in FieldInfoIter.iter_model(self.model):
+            if field.value_type not in TYPE_MAP_C:
                 raise ValueError(
-                    f"Unsupported field type for '{field.field_name}': {annotation}"
+                    f"Unsupported field type for '{field.field_name}': {field.value_type_name}"
                 )
 
-            json_schema_extra = field.field_info.json_schema_extra or {}
-            c_init_value = json_schema_extra.get("CInitValue")
+            c_init_value = field.schema.get("CInitValue")
             if c_init_value is None:
                 if field.field_info.is_required():
                     raise ValueError(
                         f"Field '{field.field_name}' is required and has no default/CInitValue"
                     )
-                c_init_value = TypeSourceC.to_c_literal(field.field_info.default)
+                c_init_value = TypeSourceC.to_c_literal(field.get_value())
 
             lines.append(f"    {c_init_value},")
 
@@ -140,7 +138,7 @@ class RendererC:
     def serialize_to_c(self, model: BaseModel) -> bytes:
         assert type(self.model) is type(model)
         instance = self.ctypes_model()
-        for field in FieldInfoIter.iter_model(type(self.model)):
+        for field in FieldInfoIter.iter_model(self.model):
             value = getattr(model, field.field_name)
             type_source = self._type_source_for_annotation(field.field_info.annotation)
             setattr(
@@ -155,7 +153,7 @@ class RendererC:
         instance = self.ctypes_model.from_buffer_copy(serizalized)
         model_data = {}
 
-        for field in FieldInfoIter.iter_model(type(self.model)):
+        for field in FieldInfoIter.iter_model(self.model):
             raw_value = getattr(instance, field.field_name)
             type_source = self._type_source_for_annotation(field.field_info.annotation)
             model_data[field.field_name] = type_source.from_ctypes(raw_value)
@@ -187,7 +185,7 @@ class RendererC:
         Create the ctypes structure matching the C layout of the model.
         """
         fields = []
-        for field in FieldInfoIter.iter_model(type(self.model)):
+        for field in FieldInfoIter.iter_model(self.model):
             annotation = field.field_info.annotation
             ctypes_type = self._type_source_for_annotation(annotation).ctypes_type
             fields.append((field.field_name, ctypes_type))

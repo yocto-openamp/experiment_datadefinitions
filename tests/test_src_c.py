@@ -2,7 +2,7 @@ import pathlib
 import re
 import subprocess
 
-from datamodel import pid_controller
+from datamodel import unittests_simple
 from renderer import renderer_c
 
 DIRECTORY_OF_THIS_FILE = pathlib.Path(__file__).parent
@@ -10,7 +10,7 @@ DIRECTORY_SRC_C = DIRECTORY_OF_THIS_FILE / "src_c"
 
 
 def test_src_c() -> None:
-    model = pid_controller.ModelPidController(name="sensor", value=42, i_param=3.14)
+    model = unittests_simple.ModelPidController(name="Axis W", value=42, i_param=3.14)
     renderer = renderer_c.RendererC(model=model)
 
     def generate_compile() -> None:
@@ -57,9 +57,8 @@ def test_src_c() -> None:
     generate_compile()
     serialized = run()
 
-    model_default = pid_controller.ModelPidController()
     model3 = renderer.deserialize_from_c(serizalized=serialized)
-    assert isinstance(model3, pid_controller.ModelPidController)
-    assert model3.name == model_default.name
-    assert model3.value == model_default.value
-    assert model3.i_param == model_default.i_param
+    assert isinstance(model3, unittests_simple.ModelPidController)
+    assert model3.name == model.name
+    assert model3.value == model.value
+    assert model3.i_param == model.i_param
