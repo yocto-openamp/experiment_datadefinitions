@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing
 
 import annotated_types
@@ -12,10 +13,13 @@ from nicegui import ui
 from utils import util_observer
 from utils.util_pydantic import FieldInfoIter
 
+logger = logging.getLogger(__file__)
+
 STYLE_QUALITY = "pl-4 text-blue"
 PROPS_ENTRY = "borderless dense"
 STYLE_ENTRY = "p-0"  # "flex-1 min-h-0 p-0"
 STYLE_COMMENT = "pl-4 text-green"
+
 
 async def set_and_validate(
     observer: util_observer.Observer,
@@ -33,6 +37,7 @@ async def set_and_validate(
         except pydantic_core.ValidationError as e:
             msg = e.errors()[0]["msg"]
             event.sender.error = msg
+            logger.warning(f"{path}: {msg}")
 
         await observer.set_request(path=path, value=value)
 
@@ -58,21 +63,17 @@ def create_text_field(
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
 
-    widget = (
-        ui.input(
-            value=value,
-            suffix=unit,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                path=path,
-                field=field,
-                event=event,
-            ),
-        )
-        .props(PROPS_ENTRY)
-        .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
-    )
+    ui.input(
+        value=value,
+        suffix=unit,
+        on_change=lambda event: set_and_validate(
+            observer=observer,
+            path=path,
+            field=field,
+            event=event,
+        ),
+    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
+
     ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
         observable, "quality_text"
     )
@@ -90,24 +91,20 @@ def create_integer_field(
 
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
-    widget = (
-        ui.number(
-            value=value,
-            min=field.get_annotation(annotated_types.Ge).ge,
-            max=field.get_annotation(annotated_types.Le).le,
-            step=1,
-            suffix=unit,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                path=path,
-                field=field,
-                event=event,
-            ),
-        )
-        .props(PROPS_ENTRY)
-        .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
-    )
+    ui.number(
+        value=value,
+        min=field.get_annotation(annotated_types.Ge).ge,
+        max=field.get_annotation(annotated_types.Le).le,
+        step=1,
+        suffix=unit,
+        on_change=lambda event: set_and_validate(
+            observer=observer,
+            path=path,
+            field=field,
+            event=event,
+        ),
+    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
+
     ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
         observable, "quality_text"
     )
@@ -124,23 +121,19 @@ def create_slider_field(
 
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
-    widget = (
-        ui.slider(
-            value=value,
-            min=field.get_annotation(annotated_types.Ge).ge,
-            max=field.get_annotation(annotated_types.Le).le,
-            step=1,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                path=path,
-                field=field,
-                event=event,
-            ),
-        )
-        .props(PROPS_ENTRY)
-        .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
-    )
+    ui.slider(
+        value=value,
+        min=field.get_annotation(annotated_types.Ge).ge,
+        max=field.get_annotation(annotated_types.Le).le,
+        step=1,
+        on_change=lambda event: set_and_validate(
+            observer=observer,
+            path=path,
+            field=field,
+            event=event,
+        ),
+    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
+
     ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
         observable, "quality_text"
     )
@@ -158,21 +151,17 @@ def create_selection_field(
 
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
-    widget = (
-        ui.select(
-            options=options,
-            value=value,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                path=path,
-                field=field,
-                event=event,
-            ),
-        )
-        .props(PROPS_ENTRY)
-        .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
-    )
+    ui.select(
+        options=options,
+        value=value,
+        on_change=lambda event: set_and_validate(
+            observer=observer,
+            path=path,
+            field=field,
+            event=event,
+        ),
+    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
+
     ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
         observable, "quality_text"
     )
@@ -191,24 +180,20 @@ def create_float_field(
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
 
-    widget = (
-        ui.number(
-            value=value,
-            min=field.schema.get("minimum"),
-            max=field.schema.get("maximum"),
-            step=0.1,
-            suffix=unit,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                path=path,
-                field=field,
-                event=event,
-            ),
-        )
-        .props(PROPS_ENTRY)
-        .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
-    )
+    ui.number(
+        value=value,
+        min=field.schema.get("minimum"),
+        max=field.schema.get("maximum"),
+        step=0.1,
+        suffix=unit,
+        on_change=lambda event: set_and_validate(
+            observer=observer,
+            path=path,
+            field=field,
+            event=event,
+        ),
+    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
+
     ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
         observable, "quality_text"
     )

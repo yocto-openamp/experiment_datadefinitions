@@ -43,6 +43,8 @@ class FieldInfoIter:
     @property
     def schema_extra(self) -> SchemaExtra:
         try:
+            if self.field_info.json_schema_extra is None:
+                return SchemaExtra()
             assert isinstance(self.field_info.json_schema_extra, dict)
             extra = SchemaExtra(**self.field_info.json_schema_extra)
             return extra

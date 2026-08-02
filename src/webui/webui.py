@@ -9,11 +9,12 @@ from fastapi import FastAPI
 from nicegui import ui
 
 from datamodel.pid_controller import ModelSystemDual
-from utils import util_datasources, util_observer, util_pydantic
+from utils import util_datasources, util_logging, util_observer, util_pydantic
 from webui.widgets import simple_editors
 
 logger = logging.getLogger(__file__)
 
+util_logging.init_logging()
 
 class WebUIState:
     def __init__(self) -> None:
@@ -27,15 +28,15 @@ class WebUIState:
         self.hierarchy_text = "..."
 
         def observer_callback(path: str, value: typing.Any) -> None:
-            def x(value: typing.Any) -> str:
-                if isinstance(value, int):
-                    return f"int({value})"
-                if isinstance(value, float):
-                    return f"float({value})"
-                return f"'{value}'"
+            # def x(value: typing.Any) -> str:
+            #     if isinstance(value, int):
+            #         return f"int({value})"
+            #     if isinstance(value, float):
+            #         return f"float({value})"
+            #     return f"'{value}'"
 
             self.hierarchy_text = "\n".join(
-                [f"{f.path} {x(f.value)}" for f in webui_state.hierarchy.all_elements]
+                [f"{f.path} {repr(f.value)}" for f in webui_state.hierarchy.all_elements]
             )
 
         self.observer.register_observer_callback(callback=observer_callback)
@@ -46,8 +47,6 @@ webui_state = WebUIState()
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # loop = asyncio.get_running_loop()
-
     await util_datasources.namedpipe_task(observer=webui_state.observer)
     try:
         yield
@@ -137,10 +136,15 @@ async def create_app() -> None:
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
                     ui.code().bind_content_from(webui_state, "hierarchy_text")
 
-    ui.checkbox(
-        "UART connected",
-        on_change=lambda event: webui_state.observer.set_quality_known(event.value),
-    ).bind_value(webui_state, "uart_connected")
+    if True:
+        log = ui.log(max_lines=10).classes("w-full h-20")
+        handler = util_logging.LogElementHandler(element=log, level=logging.DEBUG)
+        logging.getLogger().addHandler(handler)
+    if True:
+        ui.checkbox(
+            "UART connected",
+            on_change=lambda event: webui_state.observer.set_quality_known(event.value),
+        ).bind_value(webui_state, "uart_connected")
 
     dump(mh=webui_state.hierarchy)
 

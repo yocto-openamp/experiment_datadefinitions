@@ -64,7 +64,7 @@ class Observer:
             await asyncio.sleep(0.2)
 
     async def set_request(self, path: str, value: typing.Any) -> None:
-        print(f"set_request({path}, {value})")
+        logger.info(f"set_request({path}, {value})")
         item = self.get_item(path=path)
         # .value = value
         item.quality = EnumItemQuality.IN_TRANSITION
@@ -79,7 +79,7 @@ class Observer:
         self.notify(path=path, value=value)
 
     def notify(self, path: str, value: typing.Any) -> None:
-        print(f"notify({path}, {value})")
+        logger.info(f"notify({path}, {value})")
         self.notify_active += 1
         try:
             item = self.get_item(path=path)
