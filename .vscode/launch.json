@@ -12,6 +12,17 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Mockup a",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "webui_mockup_a.webui:app",
+                "--reload"
+            ],
+            "jinja": true
+        },
+        {
             "name": "Web UI",
             "type": "debugpy",
             "request": "launch",
