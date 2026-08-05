@@ -82,8 +82,23 @@ Other observables might be:
 | Customer dashboard | read only | [REST API](https://en.wikipedia.org/wiki/REST) or Websockets |
 | Customer control interface | read and write | [REST API](https://en.wikipedia.org/wiki/REST) or Websockets |
 
-## Setting values via named pipe
+## Setting values
+
+### via named pipe
 
 ```bash
 echo "/axis_x/value int(56)" > namedpipe
+```
+
+### via REST api
+
+http://127.0.0.1:8000/docs#/default/customer_api_set_request_customer_api_set_request_get
+
+path: /axis_x/value
+value: int(56)
+
+or
+
+```bash
+curl -X 'GET'   'http://127.0.0.1:8000/customer_api/set_request?path=/axis_x/value&value=int(128)'
 ```

@@ -5,7 +5,7 @@ import logging
 import typing
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from nicegui import ui
 
 from datamodel.pid_controller import ModelSystemDual
@@ -55,6 +55,25 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.api_route("/customer_api/set_request", methods=["GET"])
+async def customer_api_set_request(path: str, value: str) -> dict[str, typing.Any]:
+    item = webui_state.observer.get_item(path=path)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Unknown path: {path}")
+
+    try:
+        _value = eval(value)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    value_new = await webui_state.observer.set_request(path=path, value=_value)
+    return {
+        "ok": True,
+        "path": path,
+        "value": value_new,
+    }
 
 
 async def create_app() -> None:
@@ -147,6 +166,7 @@ async def create_app() -> None:
         ).bind_value(webui_state, "uart_connected")
 
     dump(mh=webui_state.hierarchy)
+
 
 
 @ui.page("/")

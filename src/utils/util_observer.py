@@ -63,7 +63,10 @@ class Observer:
             item.quality = quality
             await asyncio.sleep(0.2)
 
-    async def set_request(self, path: str, value: typing.Any) -> None:
+    async def set_request(self, path: str, value: typing.Any) -> typing.Any:
+        """
+        Returns the value which has been set.
+        """
         logger.info(f"set_request({path}, {value})")
         item = self.get_item(path=path)
         # .value = value
@@ -77,6 +80,7 @@ class Observer:
             # Avoid cycling
             return
         self.notify(path=path, value=value)
+        return value
 
     def notify(self, path: str, value: typing.Any) -> None:
         logger.info(f"notify({path}, {value})")
