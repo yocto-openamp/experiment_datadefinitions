@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import typing
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from nicegui import ui
 
 from datamodel.pid_controller import ModelSystemDual
@@ -74,6 +75,35 @@ async def customer_api_set_request(path: str, value: str) -> dict[str, typing.An
         "path": path,
         "value": value_new,
     }
+
+
+@app.websocket("/customer_api/observer")
+async def customer_api_observer(websocket: WebSocket) -> None:
+    await websocket.accept()
+    queue: asyncio.Queue[dict[str, typing.Any]] = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def observer_callback(path: str, value: typing.Any) -> None:
+        loop.call_soon_threadsafe(
+            queue.put_nowait,
+            {
+                "path": path,
+                "value": value,
+            },
+        )
+
+    webui_state.observer.register_observer_callback(observer_callback)
+
+    try:
+        await websocket.send_json({"ok": True, "subscribed": True})
+        while True:
+            payload = await queue.get()
+            await websocket.send_json(payload)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        with contextlib.suppress(ValueError):
+            webui_state.observer.observer_callbacks.remove(observer_callback)
 
 
 async def create_app() -> None:

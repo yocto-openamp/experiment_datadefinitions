@@ -102,3 +102,40 @@ or
 ```bash
 curl -X 'GET'   'http://127.0.0.1:8000/customer_api/set_request?path=/axis_x/value&value=int(128)'
 ```
+
+## customer observer
+
+May be used to feed a customer dashboard or grafana.
+
+```python
+python -m utils.util_websocket_listener
+Connecting to ws://127.0.0.1:8000/customer_api/observer ...
+Connected. Waiting for notifications...
+{
+  "ok": true,
+  "subscribed": true
+}
+{
+  "path": "/axis_x/value",
+  "value": 4094.0
+}
+```
+
+or (requires websockets to be installed)
+
+```bash
+python -c 'import asyncio,websockets; exec("""async def main():
+    async with websockets.connect("ws://127.0.0.1:8000/customer_api/observer") as ws:
+        async for m in ws:
+            print(m)
+"""); asyncio.run(main())'
+```
+
+or (requires uv to be installed)
+
+```bash
+uv run --with websockets python -c 'import asyncio,websockets;exec("async def main():\n async with websockets.connect(\"ws://127.0.0.1:8000/customer_api/observer\") as ws:\n  async for m in ws:\n   print(m)");asyncio.run(main())'
+{"ok":true,"subscribed":true}
+{"path":"/axis_x/value","value":4094.0}
+{"path":"/axis_x/value","value":4093.0}
+```
