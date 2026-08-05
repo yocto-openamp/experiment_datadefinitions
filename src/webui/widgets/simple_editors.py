@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import html
 import logging
 import typing
 
 import annotated_types
 import nicegui
+import nicegui.binding
 import nicegui.element
 import nicegui.events
 import pydantic_core
@@ -15,10 +17,52 @@ from utils.util_pydantic import FieldInfoIter
 
 logger = logging.getLogger(__file__)
 
-STYLE_QUALITY = "pl-4 text-blue"
-PROPS_ENTRY = "borderless dense"
-STYLE_ENTRY = "p-0"  # "flex-1 min-h-0 p-0"
-STYLE_COMMENT = "pl-4 text-green"
+STYLE_QUALITY = "pl-4"
+# PROPS_ENTRY = "borderless dense"
+# PROPS_QUALITY = "value-color=blue"
+PROPS_ENTRY = "outlined"
+# STYLE_ENTRY = "p-0"  # "flex-1 min-h-0 p-0"
+STYLE_ENTRY = "w-1/2"  # 50% of the page width. It would be better to use: Quasar row grid, use a row parent and col-6 classes.
+
+
+def bind_quality_bg_color(
+    element: nicegui.element.Element,
+    observable: util_observer.ObservableItem,
+) -> None:
+    quality_bg_colors: dict[util_observer.EnumItemQuality, str] = {
+        util_observer.EnumItemQuality.UNKNOWN: "grey-4",
+        util_observer.EnumItemQuality.KNOWN: "green-1",
+        util_observer.EnumItemQuality.IN_TRANSITION: "orange-1",
+    }
+    nicegui.binding.bind_from(
+        element._props,
+        "bg-color",
+        observable,
+        "quality",
+        backward=lambda quality: quality_bg_colors.get(quality, "grey-3"),
+        self_strict=False,
+    )
+
+
+def create_quality_label(observable: util_observer.ObservableItem) -> None:
+    quality_colors: dict[util_observer.EnumItemQuality, str] = {
+        util_observer.EnumItemQuality.UNKNOWN: "var(--q-grey-6)",
+        util_observer.EnumItemQuality.KNOWN: "var(--q-positive)",
+        util_observer.EnumItemQuality.IN_TRANSITION: "var(--q-warning)",
+    }
+
+    (
+        ui.html(content="...")
+        .classes(STYLE_QUALITY)
+        .bind_content_from(
+            observable,
+            "quality",
+            backward=lambda quality: (
+                f'<span style="color: {quality_colors.get(quality, "var(--q-grey-6)")}">'
+                f"{observable.path}<br/>quality: {html.escape(quality.value)}</span>"
+            ),
+        )
+    )
 
 
 async def set_and_validate(
@@ -44,14 +88,6 @@ async def set_and_validate(
     pass
 
 
-def _attach_comment_tooltip(
-    widget: nicegui.element.Element,
-    field: FieldInfoIter,
-) -> None:
-    if field.schema_extra.comment:
-        ui.label(field.schema_extra.comment).classes(STYLE_COMMENT)
-
-
 def create_text_field(
     observer: util_observer.Observer,
     path: str,
@@ -60,25 +96,27 @@ def create_text_field(
     observable = observer.get_item(path=path)
     unit = field.schema_extra.unit
 
-    ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
 
-    ui.input(
-        value=value,
-        suffix=unit,
-        on_change=lambda event: set_and_validate(
-            observer=observer,
-            path=path,
-            field=field,
-            event=event,
-        ),
-    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
-
-    ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
-        observable, "quality_text"
+    input_element = (
+        ui.input(
+            label=field.title,
+            value=value,
+            suffix=unit,
+            on_change=lambda event: set_and_validate(
+                observer=observer,
+                path=path,
+                field=field,
+                event=event,
+            ),
+        )
+        .props(PROPS_ENTRY)
+        .props(f'hint="{field.schema_extra.comment}"')
+        .classes(STYLE_ENTRY)
+        .bind_value(observable, "value")
     )
-    if field.schema_extra.comment:
-        ui.label(field.schema_extra.comment).classes(STYLE_COMMENT)
+    bind_quality_bg_color(element=input_element, observable=observable)
+    create_quality_label(observable=observable)
 
 
 def create_integer_field(
@@ -89,27 +127,30 @@ def create_integer_field(
     observable = observer.get_item(path=path)
     unit = field.schema_extra.unit
 
-    ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
-    ui.number(
-        value=value,
-        min=field.get_annotation(annotated_types.Ge).ge,
-        max=field.get_annotation(annotated_types.Le).le,
-        step=1,
-        suffix=unit,
-        on_change=lambda event: set_and_validate(
-            observer=observer,
-            path=path,
-            field=field,
-            event=event,
-        ),
-    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
-
-    ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
-        observable, "quality_text"
+    number_element = (
+        ui.number(
+            label=field.title,
+            value=value,
+            min=field.get_annotation(annotated_types.Ge).ge,
+            max=field.get_annotation(annotated_types.Le).le,
+            step=1,
+            suffix=unit,
+            on_change=lambda event: set_and_validate(
+                observer=observer,
+                path=path,
+                field=field,
+                event=event,
+            ),
+        )
+        .props(PROPS_ENTRY)
+        .props(f'hint="{field.schema_extra.comment}"')
+        .classes(STYLE_ENTRY)
+        .bind_value(observable, "value")
     )
-    if field.schema_extra.comment:
-        ui.label(field.schema_extra.comment).classes(STYLE_COMMENT)
+    bind_quality_bg_color(element=number_element, observable=observable)
+
+    create_quality_label(observable=observable)
 
 
 def create_slider_field(
@@ -120,25 +161,29 @@ def create_slider_field(
     observable = observer.get_item(path=path)
 
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
-    value = field.get_value()
-    ui.slider(
-        value=value,
-        min=field.get_annotation(annotated_types.Ge).ge,
-        max=field.get_annotation(annotated_types.Le).le,
-        step=1,
-        on_change=lambda event: set_and_validate(
-            observer=observer,
-            path=path,
-            field=field,
-            event=event,
-        ),
-    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
 
-    ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
-        observable, "quality_text"
+    value = field.get_value()
+    slider_element = (
+        ui.slider(
+            value=value,
+            min=field.get_annotation(annotated_types.Ge).ge,
+            max=field.get_annotation(annotated_types.Le).le,
+            step=1,
+            on_change=lambda event: set_and_validate(
+                observer=observer,
+                path=path,
+                field=field,
+                event=event,
+            ),
+        )
+        .props(PROPS_ENTRY)
+        .props(f'hint="{field.schema_extra.comment}"')
+        .classes(STYLE_ENTRY)
+        .bind_value(observable, "value")
     )
-    if field.schema_extra.comment:
-        ui.label(field.schema_extra.comment).classes(STYLE_COMMENT)
+    bind_quality_bg_color(element=slider_element, observable=observable)
+
+    create_quality_label(observable=observable)
 
 
 def create_selection_field(
@@ -149,24 +194,27 @@ def create_selection_field(
 ) -> None:
     observable = observer.get_item(path=path)
 
-    ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
-    ui.select(
-        options=options,
-        value=value,
-        on_change=lambda event: set_and_validate(
-            observer=observer,
-            path=path,
-            field=field,
-            event=event,
-        ),
-    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
-
-    ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
-        observable, "quality_text"
+    select_element = (
+        ui.select(
+            label=field.title,
+            options=options,
+            value=value,
+            on_change=lambda event: set_and_validate(
+                observer=observer,
+                path=path,
+                field=field,
+                event=event,
+            ),
+        )
+        .props(PROPS_ENTRY)
+        .props(f'hint="{field.schema_extra.comment}"')
+        .classes(STYLE_ENTRY)
+        .bind_value(observable, "value")
     )
-    if field.schema_extra.comment:
-        ui.label(field.schema_extra.comment).classes(STYLE_COMMENT)
+    bind_quality_bg_color(element=select_element, observable=observable)
+
+    create_quality_label(observable=observable)
 
 
 def create_float_field(
@@ -177,28 +225,30 @@ def create_float_field(
     observable = observer.get_item(path=path)
     unit = field.schema_extra.unit
 
-    ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
     value = field.get_value()
 
-    ui.number(
-        value=value,
-        min=field.schema.get("minimum"),
-        max=field.schema.get("maximum"),
-        step=0.1,
-        suffix=unit,
-        on_change=lambda event: set_and_validate(
-            observer=observer,
-            path=path,
-            field=field,
-            event=event,
-        ),
-    ).props(PROPS_ENTRY).classes(STYLE_ENTRY).bind_value(observable, "value")
-
-    ui.label(text="...").classes(STYLE_QUALITY).bind_text_from(
-        observable, "quality_text"
+    number_element = (
+        ui.number(
+            label=field.title,
+            value=value,
+            min=field.schema.get("minimum"),
+            max=field.schema.get("maximum"),
+            step=0.1,
+            suffix=unit,
+            on_change=lambda event: set_and_validate(
+                observer=observer,
+                path=path,
+                field=field,
+                event=event,
+            ),
+        )
+        .props(PROPS_ENTRY)
+        .props(f'hint="{field.schema_extra.comment}"')
+        .classes(STYLE_ENTRY)
+        .bind_value(observable, "value")
     )
-    if field.schema_extra.comment:
-        ui.label(field.schema_extra.comment).classes(STYLE_COMMENT)
+    bind_quality_bg_color(element=number_element, observable=observable)
+    create_quality_label(observable=observable)
 
 
 class TypeMapNiceGUI(

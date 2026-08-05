@@ -105,8 +105,8 @@ async def create_app() -> None:
         else:
             # Expansion
             for path, item in mh.compounds.items():
-                with ui.expansion(item.title).classes("w-full"):
-                    print(f"compount: {path} - {item.model!r}")
+                with ui.expansion(item.title, value=True).classes("w-full"):
+                    print(f"compound: {path} - {item.model!r}")
                     dump_elements(mh=item)
 
             with ui.expansion("Custom").classes("w-full"):

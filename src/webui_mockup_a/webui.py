@@ -14,7 +14,7 @@ logger = logging.getLogger(__file__)
 util_logging.init_logging()
 
 # ui.colors(primary="#6e93d6")
-ui.colors(primary="#d66ed2", secondary="#a4d66e", dark="#003cff")
+# ui.colors(primary="#d66ed2", secondary="#a4d66e", dark="#003cff")
 
 
 @contextlib.asynccontextmanager
