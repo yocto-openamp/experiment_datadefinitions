@@ -44,6 +44,44 @@ Stack
   * IDE: 🎯 [Visual Studio Code](https://code.visualstudio.com/)
   * Virtualization: 💡 [Docker](https://www.docker.com/), ⚙️ [Devcontainer](https://containers.dev/), 💡 [Github Codespaces](https://github.com/features/codespaces). This is used for building and regression testing
 
+## Observer Design
+
+```mermaid
+sequenceDiagram
+    participant M as /m7/xx
+    participant O as Observer
+    participant U as /ui/xx
+
+    Note left of M: Observable
+    Note right of U: Observer
+
+    Note over M,U: Propagation
+    M->>O: register_observable(path, datatype)
+    U->>O: add_observer(path)
+
+    Note over M,U: A value changed on M7
+    M->>+O: notify(path, value)
+    O->>U: notify(path, value)
+    O-->>-M:
+
+    Note over M,U: The user sets a new value
+    U->>+O: set_request(path, value)
+    O->>M: set_requet(path, value)
+    O-->>-U:
+    M->>+O: notify(path, value)
+    O->>U: notify(path, value)
+    O-->>-M:
+```
+
+Other observables might be:
+
+| Use case | read/write access | Communication Channel |
+| - | - | - | 
+| Log file | read only | python logging |
+| Grafana log interface | read only | [influxdb-client](https://github.com/influxdata/influxdb-client-python) or mqtt |
+| Customer dashboard | read only | [REST API](https://en.wikipedia.org/wiki/REST) or Websockets |
+| Customer control interface | read and write | [REST API](https://en.wikipedia.org/wiki/REST) or Websockets |
+
 ## Setting values via named pipe
 
 ```bash

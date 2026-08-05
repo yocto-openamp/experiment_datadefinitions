@@ -40,7 +40,9 @@ async def create_app() -> None:
             ui.button().props("icon=bug_report flat round").tooltip(
                 "Dump and clear errors"
             )
-            ui.button().props("icon=restart_alt flat round").tooltip("Reboot odrive")
+            async def reboot(event)-> None:
+                print("Reboot buttn clicked!")
+            ui.button(on_click=reboot).props("icon=restart_alt flat round").tooltip("Reboot")
 
     with ui.row():
         for a, axis in enumerate(["Axis X", "Axis Y"]):
