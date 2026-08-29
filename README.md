@@ -117,7 +117,7 @@ Connected. Waiting for notifications...
 }
 {
   "path": "/axis_x/value",
-  "value": 4094.0
+  "topic_value": 4094.0
 }
 ```
 
@@ -136,6 +136,6 @@ or (requires uv to be installed)
 ```bash
 uv run --with websockets python -c 'import asyncio,websockets;exec("async def main():\n async with websockets.connect(\"ws://127.0.0.1:8000/customer_api/observer\") as ws:\n  async for m in ws:\n   print(m)");asyncio.run(main())'
 {"ok":true,"subscribed":true}
-{"path":"/axis_x/value","value":4094.0}
-{"path":"/axis_x/value","value":4093.0}
+{"path":"/axis_x/value","topic_value":4094.0}
+{"path":"/axis_x/value","topic_value":4093.0}
 ```

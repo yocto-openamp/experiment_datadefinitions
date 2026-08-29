@@ -58,11 +58,11 @@ def _create_axis_column(index, axis_name):
         ui.toggle(["undefined", "idle"])
 
     with ui.row():
-        with ui.card().bind_visibility_from(mode, "value", value="torque"):
+        with ui.card().bind_visibility_from(mode, "topic_value", value="torque"):
             _create_card_torque()
-        with ui.card().bind_visibility_from(mode, "value", value="velocity"):
+        with ui.card().bind_visibility_from(mode, "topic_value", value="velocity"):
             _create_card_velocity()
-        with ui.card().bind_visibility_from(mode, "value", value="position"):
+        with ui.card().bind_visibility_from(mode, "topic_value", value="position"):
             _create_card_position()
 
         with ui.column():

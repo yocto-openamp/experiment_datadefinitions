@@ -59,7 +59,7 @@ def create_quality_label(observable: util_observer.ObservableItem) -> None:
             "quality",
             backward=lambda quality: (
                 f'<span style="color: {quality_colors.get(quality, "var(--q-grey-6)")}">'
-                f"{observable.path}<br/>quality: {html.escape(quality.value)}</span>"
+                f"{observable.topic}<br/>quality: {html.escape(quality.value)}</span>"
             ),
         )
     )
@@ -67,33 +67,39 @@ def create_quality_label(observable: util_observer.ObservableItem) -> None:
 
 async def set_and_validate(
     observer: util_observer.Observer,
-    path: str,
+    topic: str,
     field: FieldInfoIter,
     event: nicegui.events.UiEventArguments,
 ) -> None:
-    assert isinstance(path, str)
+    assert isinstance(topic, str)
     assert isinstance(field, FieldInfoIter)
     assert isinstance(event, nicegui.events.UiEventArguments)
     if isinstance(event, nicegui.events.ValueChangeEventArguments):
-        value = event.value
+        topic_value = event.value
         try:
-            field.set_value(value)
+            field.set_value(topic_value)
         except pydantic_core.ValidationError as e:
             msg = e.errors()[0]["msg"]
             event.sender.error = msg
-            logger.warning(f"{path}: {msg}")
+            logger.warning(f"{topic}: {msg}")
 
-        await observer.set_request(path=path, value=value)
+        await observer.set_request(
+            util_observer.Message(
+                topic=topic,
+                verb=util_observer.EnumMessageVerb.SET_REQUEST,
+                topic_value=topic_value,
+            )
+        )
 
     pass
 
 
 def create_text_field(
     observer: util_observer.Observer,
-    path: str,
+    topic: str,
     field: FieldInfoIter,
 ) -> None:
-    observable = observer.get_item(path=path)
+    observable = observer.get_item(topic=topic)
     unit = field.schema_extra.unit
 
     value = field.get_value()
@@ -105,7 +111,7 @@ def create_text_field(
             suffix=unit,
             on_change=lambda event: set_and_validate(
                 observer=observer,
-                path=path,
+                topic=topic,
                 field=field,
                 event=event,
             ),
@@ -113,7 +119,7 @@ def create_text_field(
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
+        .bind_value(observable, "topic_value")
     )
     bind_quality_bg_color(element=input_element, observable=observable)
     create_quality_label(observable=observable)
@@ -121,10 +127,10 @@ def create_text_field(
 
 def create_integer_field(
     observer: util_observer.Observer,
-    path: str,
+    topic: str,
     field: FieldInfoIter,
 ) -> None:
-    observable = observer.get_item(path=path)
+    observable = observer.get_item(topic=topic)
     unit = field.schema_extra.unit
 
     value = field.get_value()
@@ -138,7 +144,7 @@ def create_integer_field(
             suffix=unit,
             on_change=lambda event: set_and_validate(
                 observer=observer,
-                path=path,
+                topic=topic,
                 field=field,
                 event=event,
             ),
@@ -146,7 +152,7 @@ def create_integer_field(
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
+        .bind_value(observable, "topic_value")
     )
     bind_quality_bg_color(element=number_element, observable=observable)
 
@@ -155,10 +161,10 @@ def create_integer_field(
 
 def create_slider_field(
     observer: util_observer.Observer,
-    path: str,
+    topic: str,
     field: FieldInfoIter,
 ) -> None:
-    observable = observer.get_item(path=path)
+    observable = observer.get_item(topic=topic)
 
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
 
@@ -171,7 +177,7 @@ def create_slider_field(
             step=1,
             on_change=lambda event: set_and_validate(
                 observer=observer,
-                path=path,
+                topic=topic,
                 field=field,
                 event=event,
             ),
@@ -179,7 +185,7 @@ def create_slider_field(
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
+        .bind_value(observable, "topic_value")
     )
     bind_quality_bg_color(element=slider_element, observable=observable)
 
@@ -188,11 +194,11 @@ def create_slider_field(
 
 def create_selection_field(
     observer: util_observer.Observer,
-    path: str,
+    topic: str,
     field: FieldInfoIter,
     options: list | dict,
 ) -> None:
-    observable = observer.get_item(path=path)
+    observable = observer.get_item(topic=topic)
 
     value = field.get_value()
     select_element = (
@@ -202,7 +208,7 @@ def create_selection_field(
             value=value,
             on_change=lambda event: set_and_validate(
                 observer=observer,
-                path=path,
+                topic=topic,
                 field=field,
                 event=event,
             ),
@@ -210,7 +216,7 @@ def create_selection_field(
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
+        .bind_value(observable, "topic_value")
     )
     bind_quality_bg_color(element=select_element, observable=observable)
 
@@ -219,10 +225,10 @@ def create_selection_field(
 
 def create_float_field(
     observer: util_observer.Observer,
-    path: str,
+    topic: str,
     field: FieldInfoIter,
 ) -> None:
-    observable = observer.get_item(path=path)
+    observable = observer.get_item(topic=topic)
     unit = field.schema_extra.unit
 
     value = field.get_value()
@@ -237,7 +243,7 @@ def create_float_field(
             suffix=unit,
             on_change=lambda event: set_and_validate(
                 observer=observer,
-                path=path,
+                topic=topic,
                 field=field,
                 event=event,
             ),
@@ -245,7 +251,7 @@ def create_float_field(
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
-        .bind_value(observable, "value")
+        .bind_value(observable, "topic_value")
     )
     bind_quality_bg_color(element=number_element, observable=observable)
     create_quality_label(observable=observable)

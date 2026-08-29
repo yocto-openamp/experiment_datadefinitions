@@ -57,6 +57,9 @@ class ModelSystemDual(pydantic.BaseModel):
     axis_y: ModelPidController = pydantic.Field(
         default_factory=lambda: ModelPidController(name="Axis Y"),
     )
+    axis_z: ModelPidController = pydantic.Field(
+        default_factory=lambda: ModelPidController(name="Axis Z"),
+    )
     controllers: list[ModelPidController] = pydantic.Field(
         min_length=2,
         max_length=2,
@@ -67,3 +70,5 @@ class ModelSystemDual(pydantic.BaseModel):
             title_lookup="name",
         ).dict,
     )
+
+

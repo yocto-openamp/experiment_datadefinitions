@@ -10,6 +10,30 @@ import typing
 logger = logging.getLogger(__file__)
 
 
+class EnumMessageVerb(enum.IntEnum):
+    REGISTER = 1
+    SET_REQUEST = 2
+    NOTIFY = 3
+
+
+@dataclasses.dataclass(frozen=True)
+class Message:
+    topic: str
+    """
+    Example: /uart/aligna5/status
+    """
+
+    verb: EnumMessageVerb
+    """
+    Example: REGISTER/SET_REQUEST/NOTIFY
+    """
+
+    topic_value: typing.Any
+    """
+    All topic_value for the same topic are required to be of the same type.
+    """
+
+
 class EnumItemQuality(enum.StrEnum):
     UNKNOWN = "unknown"
     KNOWN = "known"
@@ -18,8 +42,8 @@ class EnumItemQuality(enum.StrEnum):
 
 @dataclasses.dataclass(slots=True)
 class ObservableItem:
-    path: str
-    value: typing.Any
+    topic: str
+    topic_value: typing.Any
     quality: EnumItemQuality
 
     @property
@@ -35,23 +59,23 @@ class Observer:
 
     def register_observer_callback(
         self,
-        callback: typing.Callable[[str, str], None],
+        callback: typing.Callable[[Message], None],
     ) -> None:
         self.observer_callbacks.append(callback)
 
-    def register_with_value(self, path: str, value: typing.Any) -> None:
-        print(f"register_with_value({path}, {value}")
-        if path in self.items:
-            logger.error(f"Already registered in observer: {path}")
+    def register_with_value(self, message: Message) -> None:
+        print(f"register_with_value({message.topic}, {message.topic_value}")
+        if message.topic in self.items:
+            logger.error(f"Already registered in observer: {message.topic}")
             return
-        self.items[path] = ObservableItem(
-            path=path,
-            value=value,
+        self.items[message.topic] = ObservableItem(
+            topic=message.topic,
+            topic_value=message.topic_value,
             quality=EnumItemQuality.UNKNOWN,
         )
 
-    def get_item(self, path: str) -> ObservableItem:
-        item = self.items.get(path)
+    def get_item(self, topic: str) -> ObservableItem:
+        item = self.items.get(topic)
         assert item is not None
         return item
 
@@ -63,12 +87,12 @@ class Observer:
             item.quality = quality
             await asyncio.sleep(0.2)
 
-    async def set_request(self, path: str, value: typing.Any) -> typing.Any:
+    async def set_request(self, message: Message) -> typing.Any:
         """
         Returns the value which has been set.
         """
-        logger.info(f"set_request({path}, {value})")
-        item = self.get_item(path=path)
+        logger.info(f"set_request({message.topic}, {message.topic_value})")
+        item = self.get_item(topic=message.topic)
         # .value = value
         item.quality = EnumItemQuality.IN_TRANSITION
         self.notify_active += 1
@@ -79,21 +103,27 @@ class Observer:
         if self.notify_active > 0:
             # Avoid cycling
             return
-        self.notify(path=path, value=value)
-        return value
+        self.notify(
+            Message(
+                topic=message.topic,
+                verb=EnumMessageVerb.NOTIFY,
+                topic_value=message.topic_value,
+            )
+        )
+        return message.topic_value
 
-    def notify(self, path: str, value: typing.Any) -> None:
-        logger.info(f"notify({path}, {value})")
+    def notify(self, message: Message) -> None:
+        logger.info(f"notify({message.topic}, {message.topic_value})")
         self.notify_active += 1
         try:
-            item = self.get_item(path=path)
-            if item.value != value:
-                item.value = value
+            item = self.get_item(topic=message.topic)
+            if item.topic_value != message.topic_value:
+                item.topic_value = message.topic_value
             item.quality = EnumItemQuality.KNOWN
 
             for callback in self.observer_callbacks:
                 try:
-                    callback(path=path, value=value)
+                    callback(path=message.topic, value=message.topic_value)
                 except Exception as e:
                     logger.exception(msg="callback failed", exc_info=e)
         finally:

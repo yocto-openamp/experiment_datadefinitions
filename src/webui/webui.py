@@ -17,6 +17,7 @@ logger = logging.getLogger(__file__)
 
 util_logging.init_logging()
 
+
 class WebUIState:
     def __init__(self) -> None:
         self.observer = util_observer.Observer()
@@ -24,7 +25,13 @@ class WebUIState:
         self.hierarchy = util_pydantic.ModelHierarchy.factory(model=self.model)
         self.uart_connected = False
         for element in self.hierarchy.all_elements:
-            self.observer.register_with_value(path=element.path, value=element.value)
+            self.observer.register_with_value(
+                util_observer.Message(
+                    topic=element.path,
+                    verb=util_observer.EnumMessageVerb.REGISTER,
+                    topic_value=element.value,
+                ),
+            )
 
         self.hierarchy_text = "..."
 
@@ -37,7 +44,10 @@ class WebUIState:
             #     return f"'{value}'"
 
             self.hierarchy_text = "\n".join(
-                [f"{f.path} {repr(f.value)}" for f in webui_state.hierarchy.all_elements]
+                [
+                    f"{f.path} {repr(f.value)}"
+                    for f in webui_state.hierarchy.all_elements
+                ]
             )
 
         self.observer.register_observer_callback(callback=observer_callback)
@@ -59,21 +69,21 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.api_route("/customer_api/set_request", methods=["GET"])
-async def customer_api_set_request(path: str, value: str) -> dict[str, typing.Any]:
-    item = webui_state.observer.get_item(path=path)
+async def customer_api_set_request(topic: str, value: str) -> dict[str, typing.Any]:
+    item = webui_state.observer.get_item(topic=topic)
     if item is None:
-        raise HTTPException(status_code=404, detail=f"Unknown path: {path}")
+        raise HTTPException(status_code=404, detail=f"Unknown path: {topic}")
 
     try:
         _value = eval(value)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    value_new = await webui_state.observer.set_request(path=path, value=_value)
+    value_new = await webui_state.observer.set_request(topic=topic, value=_value)
     return {
         "ok": True,
-        "path": path,
-        "value": value_new,
+        "path": topic,
+        "topic_value": value_new,
     }
 
 
@@ -88,7 +98,7 @@ async def customer_api_observer(websocket: WebSocket) -> None:
             queue.put_nowait,
             {
                 "path": path,
-                "value": value,
+                "topic_value": value,
             },
         )
 
@@ -112,8 +122,8 @@ async def create_app() -> None:
     # with ui.column().classes("w-full max-w-2xl gap-0 p-4"):
     def dump_elements(mh: util_pydantic.ModelHierarchy) -> None:
         assert isinstance(mh, util_pydantic.ModelHierarchy)
-        for path, item in mh.elements.items():
-            print(f"element:  {path} - {item.value_type_name}")
+        for topic, item in mh.elements.items():
+            print(f"element:  {topic} - {item.value_type_name}")
             try:
                 f_create_field = simple_editors.TYPE_MAP_NICE_GUI[item.value_type]
             except KeyError:
@@ -123,7 +133,7 @@ async def create_app() -> None:
                 continue
 
             with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
-                f_create_field(observer=webui_state.observer, path=path, field=item)
+                f_create_field(observer=webui_state.observer, topic=topic, field=item)
 
     def dump(mh: util_pydantic.ModelHierarchy) -> None:
         assert isinstance(mh, util_pydantic.ModelHierarchy)
@@ -134,17 +144,17 @@ async def create_app() -> None:
             dict_tabs = {}
 
             with ui.tabs().classes("w-full") as tabs:
-                for path, item in mh.compounds.items():
+                for topic, item in mh.compounds.items():
                     # dict_tabs[path] = ui.tab(f"{path}: {item.title}")
-                    dict_tabs[path] = ui.tab(item.title)
+                    dict_tabs[topic] = ui.tab(item.title)
 
                 dict_tabs["/custom"] = ui.tab("customized")
 
             with ui.tab_panels(tabs).classes("w-full"):
-                for path, item in mh.compounds.items():
-                    current_tab = dict_tabs[path]
+                for topic, item in mh.compounds.items():
+                    current_tab = dict_tabs[topic]
                     with ui.tab_panel(current_tab).classes("w-full"):
-                        print(f"compount: {path} - {item.model!r}")
+                        print(f"compount: {topic} - {item.model!r}")
                         dump_elements(mh=item)
 
                 current_tab = dict_tabs["/custom"]
@@ -153,14 +163,14 @@ async def create_app() -> None:
 
         else:
             # Expansion
-            for path, item in mh.compounds.items():
+            for topic, item in mh.compounds.items():
                 with ui.expansion(item.title, value=True).classes("w-full"):
-                    print(f"compound: {path} - {item.model!r}")
+                    print(f"compound: {topic} - {item.model!r}")
                     dump_elements(mh=item)
 
             with ui.expansion("Custom").classes("w-full"):
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
-                    path = "/common/debuglevel"
+                    topic = "/common/debuglevel"
                     simple_editors.create_selection_field(
                         options={
                             0: "off",
@@ -170,16 +180,16 @@ async def create_app() -> None:
                             4: "error",
                         },
                         observer=webui_state.observer,
-                        path=path,
-                        field=mh.get_by_path(path).field,
+                        topic=topic,
+                        field=mh.get_by_path(topic).field,
                     )
 
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
-                    path = "/axis_x/value"
+                    topic = "/axis_x/value"
                     simple_editors.create_slider_field(
                         observer=webui_state.observer,
-                        path=path,
-                        field=mh.get_by_path(path).field,
+                        topic=topic,
+                        field=mh.get_by_path(topic).field,
                     )
 
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
@@ -196,7 +206,6 @@ async def create_app() -> None:
         ).bind_value(webui_state, "uart_connected")
 
     dump(mh=webui_state.hierarchy)
-
 
 
 @ui.page("/")

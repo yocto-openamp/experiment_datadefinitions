@@ -26,9 +26,15 @@ async def namedpipe_task(observer: util_observer.Observer) -> None:
         data = os.read(fd, 4096)
         text = data.decode("utf-8", errors="replace").strip()
         print(f"{filename}: {text}")
-        path, _, value_text = text.partition(" ")
-        value = eval(value_text)
-        observer.notify(path=path, value=value)
+        topic, _, value_text = text.partition(" ")
+        topic_value = eval(value_text)
+        observer.notify(
+            util_observer.Message(
+                topic=topic,
+                verb=util_observer.EnumMessageVerb.NOTIFY,
+                topic_value=topic_value,
+            )
+        )
 
     loop = asyncio.get_running_loop()
     loop.add_reader(fd, callback_read)
