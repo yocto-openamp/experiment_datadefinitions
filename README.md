@@ -94,13 +94,13 @@ echo "/axis_x/value int(56)" > namedpipe
 
 http://127.0.0.1:8000/docs#/default/customer_api_set_request_customer_api_set_request_get
 
-path: /axis_x/value
+topic: /axis_x/value
 value: int(56)
 
 or
 
 ```bash
-curl -X 'GET'   'http://127.0.0.1:8000/customer_api/set_request?path=/axis_x/value&value=int(128)'
+curl -X 'GET' 'http://127.0.0.1:8000/customer_api/set_request?topic=/axis_x/value&topic_value=int(128)'
 ```
 
 ## customer observer

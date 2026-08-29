@@ -10,7 +10,13 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from nicegui import ui
 
 from datamodel.pid_controller import ModelSystemDual
-from utils import util_datasources, util_logging, util_observer, util_pydantic
+from utils import (
+    util_datasinks,
+    util_datasources,
+    util_logging,
+    util_observer,
+    util_pydantic,
+)
 from webui.widgets import simple_editors
 
 logger = logging.getLogger(__file__)
@@ -35,7 +41,7 @@ class WebUIState:
 
         self.hierarchy_text = "..."
 
-        def observer_callback(path: str, value: typing.Any) -> None:
+        def observer_callback(message: util_observer.Message) -> None:
             # def x(value: typing.Any) -> str:
             #     if isinstance(value, int):
             #         return f"int({value})"
@@ -59,6 +65,7 @@ webui_state = WebUIState()
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
     await util_datasources.namedpipe_task(observer=webui_state.observer)
+    util_datasinks.logger_sink(observer=webui_state.observer)
     try:
         yield
     finally:
@@ -69,20 +76,27 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.api_route("/customer_api/set_request", methods=["GET"])
-async def customer_api_set_request(topic: str, value: str) -> dict[str, typing.Any]:
+async def customer_api_set_request(
+    topic: str, topic_value: str
+) -> dict[str, typing.Any]:
     item = webui_state.observer.get_item(topic=topic)
     if item is None:
         raise HTTPException(status_code=404, detail=f"Unknown path: {topic}")
 
     try:
-        _value = eval(value)
+        _topic_value = eval(topic_value)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    value_new = await webui_state.observer.set_request(topic=topic, value=_value)
+    message = util_observer.Message(
+        topic=topic,
+        verb=util_observer.EnumMessageVerb.SET_REQUEST,
+        topic_value=_topic_value,
+    )
+    value_new = await webui_state.observer.set_request(message=message)
     return {
         "ok": True,
-        "path": topic,
+        "topic": topic,
         "topic_value": value_new,
     }
 
@@ -93,12 +107,13 @@ async def customer_api_observer(websocket: WebSocket) -> None:
     queue: asyncio.Queue[dict[str, typing.Any]] = asyncio.Queue()
     loop = asyncio.get_running_loop()
 
-    def observer_callback(path: str, value: typing.Any) -> None:
+    def observer_callback(message: util_observer.Message) -> None:
         loop.call_soon_threadsafe(
             queue.put_nowait,
             {
-                "path": path,
-                "topic_value": value,
+                "topic": message.topic,
+                "verb": message.verb.name,
+                "topic_value": message.topic,
             },
         )
 

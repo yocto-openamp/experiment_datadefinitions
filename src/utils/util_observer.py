@@ -123,7 +123,7 @@ class Observer:
 
             for callback in self.observer_callbacks:
                 try:
-                    callback(path=message.topic, value=message.topic_value)
+                    callback(message)
                 except Exception as e:
                     logger.exception(msg="callback failed", exc_info=e)
         finally:
