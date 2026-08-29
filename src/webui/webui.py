@@ -31,7 +31,7 @@ class WebUIState:
         self.hierarchy = util_pydantic.ModelHierarchy.factory(model=self.model)
         self.uart_connected = False
         for element in self.hierarchy.all_elements:
-            self.observer.register_with_value(
+            self.observer.send_message_sync(
                 util_observer.Message(
                     topic=element.path,
                     verb=util_observer.EnumMessageVerb.REGISTER,

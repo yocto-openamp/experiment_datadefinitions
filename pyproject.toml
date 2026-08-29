@@ -81,13 +81,11 @@ section-order = [
 [tool.mypy]
 # strict = true
 # enable_incomplete_feature = ["NewGenericSyntax"]
+files = ["src", "tests"]
+mypy_path = ["src"]
 
 [[tool.mypy.overrides]]
 module = "scipy.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "ad_low_noise_float_2023_decoder.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
