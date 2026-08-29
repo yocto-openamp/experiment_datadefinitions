@@ -9,7 +9,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from nicegui import ui
 
-from datamodel.pid_controller import ModelSystemDual
+from datamodel.pid_controller import ModelSystemDual, PREFIX_M7
 from utils import (
     util_datasinks,
     util_datasources,
@@ -28,7 +28,9 @@ class WebUIState:
     def __init__(self) -> None:
         self.observer = util_observer.Observer()
         self.model = ModelSystemDual()
-        self.hierarchy = util_pydantic.ModelHierarchy.factory(model=self.model)
+        self.hierarchy = util_pydantic.ModelHierarchy.factory(
+            model=self.model, prefix=f"{PREFIX_M7}"
+        )
         self.uart_connected = False
         for element in self.hierarchy.all_elements:
             self.observer.send_message_sync(
@@ -42,13 +44,6 @@ class WebUIState:
         self.hierarchy_text = "..."
 
         def observer_callback(message: util_observer.Message) -> None:
-            # def x(value: typing.Any) -> str:
-            #     if isinstance(value, int):
-            #         return f"int({value})"
-            #     if isinstance(value, float):
-            #         return f"float({value})"
-            #     return f"'{value}'"
-
             self.hierarchy_text = "\n".join(
                 [
                     f"{f.path} {repr(f.value)}"
@@ -93,7 +88,7 @@ async def customer_api_set_request(
         verb=util_observer.EnumMessageVerb.SET_REQUEST,
         topic_value=_topic_value,
     )
-    value_new = await webui_state.observer.set_request(message=message)
+    value_new = await webui_state.observer.send_message(message=message)
     return {
         "ok": True,
         "topic": topic,
@@ -185,7 +180,7 @@ async def create_app() -> None:
 
             with ui.expansion("Custom").classes("w-full"):
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
-                    topic = "/common/debuglevel"
+                    topic = f"{PREFIX_M7}/common/debuglevel"
                     simple_editors.create_selection_field(
                         options={
                             0: "off",
@@ -200,7 +195,7 @@ async def create_app() -> None:
                     )
 
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
-                    topic = "/axis_x/value"
+                    topic = f"{PREFIX_M7}/axis_x/value"
                     simple_editors.create_slider_field(
                         observer=webui_state.observer,
                         topic=topic,

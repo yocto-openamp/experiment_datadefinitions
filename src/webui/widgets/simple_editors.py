@@ -83,7 +83,7 @@ async def set_and_validate(
             event.sender.error = msg
             logger.warning(f"{topic}: {msg}")
 
-        await observer.set_request(
+        await observer.send_message(
             util_observer.Message(
                 topic=topic,
                 verb=util_observer.EnumMessageVerb.SET_REQUEST,

@@ -154,7 +154,9 @@ class ModelHierarchy:
         assert isinstance(model, pydantic.BaseModel)
         assert isinstance(prefix, str)
         assert isinstance(parent, ModelHierarchy | None)
-        assert prefix.startswith("/")
+        assert prefix.startswith("/"), prefix
+        if prefix != "/":
+            assert not prefix.endswith("/"), prefix
 
         mh = ModelHierarchy(prefix=prefix, parent=parent, field=field, model=model)
 
@@ -234,9 +236,9 @@ class ModelHierarchy:
 
     @property
     def iter_elements(self) -> typing.Iterator[FieldHierarchy]:
-        for path, item in self.elements.items():
-            yield FieldHierarchy(path=path, field=item)
-        for _path, item in self.compounds.items():
+        for topic, item in self.elements.items():
+            yield FieldHierarchy(path=topic, field=item)
+        for _topic, item in self.compounds.items():
             yield from item.iter_elements
 
     def dump(self):

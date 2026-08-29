@@ -2,6 +2,8 @@ import pydantic
 
 from utils.util_pydantic import SchemaExtra
 
+PREFIX_M7 = "/m7"
+
 
 class ModelPidController(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(validate_assignment=True)
@@ -70,5 +72,3 @@ class ModelSystemDual(pydantic.BaseModel):
             title_lookup="name",
         ).dict,
     )
-
-

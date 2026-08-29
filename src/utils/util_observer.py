@@ -76,17 +76,19 @@ class Observer:
             item.quality = quality
             await asyncio.sleep(0.2)
 
-    def send_message_sync(self,message: Message) -> None:
+    def send_message_sync(self, message: Message) -> None:
         assert isinstance(message, Message)
         assert isinstance(message.verb, EnumMessageVerb)
         assert isinstance(message.topic, str)
 
         if message.verb == EnumMessageVerb.REGISTER:
             self._register_topic(message=message)
+            self._call_callbacks(message=message)
             return
 
         if message.verb == EnumMessageVerb.NOTIFY:
             self._notify(message=message)
+            self._call_callbacks(message=message)
             return
 
         assert False, "SET_REQUEST must be call async!"
@@ -94,6 +96,7 @@ class Observer:
     async def send_message(self, message: Message) -> None:
         if message.verb == EnumMessageVerb.SET_REQUEST:
             await self._set_request(message=message)
+            self._call_callbacks(message=message)
             return
 
         self.send_message_sync(message=message)
@@ -113,7 +116,7 @@ class Observer:
         """
         Returns the value which has been set.
         """
-        logger.info(f"set_request({message.topic}, {message.topic_value})")
+        # logger.debug(f"set_request({message.topic}, {message.topic_value})")
         item = self.get_item(topic=message.topic)
         # .value = value
         item.quality = EnumItemQuality.IN_TRANSITION
@@ -135,18 +138,19 @@ class Observer:
         return message.topic_value
 
     def _notify(self, message: Message) -> None:
-        logger.info(f"notify({message.topic}, {message.topic_value})")
+        # logger.debug(f"notify({message.topic}, {message.topic_value})")
         self.notify_active += 1
         try:
             item = self.get_item(topic=message.topic)
             if item.topic_value != message.topic_value:
                 item.topic_value = message.topic_value
             item.quality = EnumItemQuality.KNOWN
-
-            for callback in self.observer_callbacks:
-                try:
-                    callback(message)
-                except Exception as e:
-                    logger.exception(msg="callback failed", exc_info=e)
         finally:
             self.notify_active -= 1
+
+    def _call_callbacks(self, message: Message) -> None:
+        for callback in self.observer_callbacks:
+            try:
+                callback(message)
+            except Exception as e:
+                logger.exception(msg="callback failed", exc_info=e)
