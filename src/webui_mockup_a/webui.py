@@ -40,9 +40,13 @@ async def create_app() -> None:
             ui.button().props("icon=bug_report flat round").tooltip(
                 "Dump and clear errors"
             )
-            async def reboot(event)-> None:
+
+            async def reboot(event) -> None:
                 print("Reboot buttn clicked!")
-            ui.button(on_click=reboot).props("icon=restart_alt flat round").tooltip("Reboot")
+
+            ui.button(on_click=reboot).props("icon=restart_alt flat round").tooltip(
+                "Reboot"
+            )
 
     with ui.row():
         for a, axis in enumerate(["Axis X", "Axis Y"]):
@@ -58,11 +62,11 @@ def _create_axis_column(index, axis_name):
         ui.toggle(["undefined", "idle"])
 
     with ui.row():
-        with ui.card().bind_visibility_from(mode, "topic_value", value="torque"):
+        with ui.card().bind_visibility_from(mode, "value", value="torque"):
             _create_card_torque()
-        with ui.card().bind_visibility_from(mode, "topic_value", value="velocity"):
+        with ui.card().bind_visibility_from(mode, "value", value="velocity"):
             _create_card_velocity()
-        with ui.card().bind_visibility_from(mode, "topic_value", value="position"):
+        with ui.card().bind_visibility_from(mode, "value", value="position"):
             _create_card_position()
 
         with ui.column():

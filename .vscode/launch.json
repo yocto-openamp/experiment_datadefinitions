@@ -12,7 +12,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Mockup a",
+            "name": "datamodel: Mockup a",
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
@@ -23,7 +23,7 @@
             "jinja": true
         },
         {
-            "name": "Web UI",
+            "name": "datamodel: Web UI",
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
@@ -38,17 +38,6 @@
                 "ENV_PIPE": "namedpipe",
                 // "ENV_FILE_POLLER": "pollfile",
             },
-            "jinja": true
-        },
-        {
-            "name": "FastAPI",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "uvicorn",
-            "args": [
-                "webui:webui",
-                "--reload"
-            ],
             "jinja": true
         }
     ]
