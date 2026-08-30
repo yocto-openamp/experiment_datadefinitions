@@ -7,34 +7,12 @@ import logging
 import random
 import typing
 
+from .util_message import Message, MessageVerb
+
 logger = logging.getLogger(__file__)
 
 
-class EnumMessageVerb(enum.IntEnum):
-    REGISTER = 1
-    SET_REQUEST = 2
-    NOTIFY = 3
-
-
-@dataclasses.dataclass(frozen=True)
-class Message:
-    topic: str
-    """
-    Example: /uart/aligna5/status
-    """
-
-    verb: EnumMessageVerb
-    """
-    Example: REGISTER/SET_REQUEST/NOTIFY
-    """
-
-    topic_value: typing.Any
-    """
-    All topic_value for the same topic are required to be of the same type.
-    """
-
-
-class EnumItemQuality(enum.StrEnum):
+class ItemQuality(enum.StrEnum):
     UNKNOWN = "unknown"
     KNOWN = "known"
     IN_TRANSITION = "intransition"
@@ -44,7 +22,7 @@ class EnumItemQuality(enum.StrEnum):
 class ObservableItem:
     topic: str
     topic_value: typing.Any
-    quality: EnumItemQuality
+    quality: ItemQuality
 
     @property
     def quality_text(self) -> str:
@@ -91,7 +69,7 @@ class Observer:
         """
         For demo purpose: set the all items to KNOWN randomly
         """
-        quality = EnumItemQuality.KNOWN if quality_int else EnumItemQuality.UNKNOWN
+        quality = ItemQuality.KNOWN if quality_int else ItemQuality.UNKNOWN
         items = list(self.items.values())
         random.shuffle(items)
         for item in items:
@@ -100,20 +78,20 @@ class Observer:
 
     def send_message(self, message: Message) -> None:
         assert isinstance(message, Message)
-        assert isinstance(message.verb, EnumMessageVerb)
+        assert isinstance(message.verb, MessageVerb)
         assert isinstance(message.topic, str)
 
-        if message.verb == EnumMessageVerb.SET_REQUEST:
+        if message.verb == MessageVerb.SET_REQUEST:
             self._set_request(message=message)
             self._call_callbacks(message=message)
             return
 
-        if message.verb == EnumMessageVerb.REGISTER:
+        if message.verb == MessageVerb.REGISTER:
             self._register_topic(message=message)
             self._call_callbacks(message=message)
             return
 
-        if message.verb == EnumMessageVerb.NOTIFY:
+        if message.verb == MessageVerb.NOTIFY:
             self._notify(message=message)
             self._call_callbacks(message=message)
             return
@@ -130,7 +108,7 @@ class Observer:
         self.items[message.topic] = ObservableItem(
             topic=message.topic,
             topic_value=message.topic_value,
-            quality=EnumItemQuality.UNKNOWN,
+            quality=ItemQuality.UNKNOWN,
         )
 
     def _set_request(self, message: Message) -> None:
@@ -139,14 +117,14 @@ class Observer:
         """
         # logger.debug(f"set_request({message.topic}, {message.topic_value})")
         item = self.get_item(topic=message.topic)
-        item.quality = EnumItemQuality.IN_TRANSITION
+        item.quality = ItemQuality.IN_TRANSITION
 
     def _notify(self, message: Message) -> None:
         # logger.debug(f"notify({message.topic}, {message.topic_value})")
         item = self.get_item(topic=message.topic)
         if item.topic_value != message.topic_value:
             item.topic_value = message.topic_value
-        item.quality = EnumItemQuality.KNOWN
+        item.quality = ItemQuality.KNOWN
 
     def _call_callbacks(self, message: Message) -> None:
         for registration in self.observer_registrations:
@@ -159,3 +137,20 @@ class Observer:
                 registration.callback(message)
             except Exception as e:
                 logger.exception(msg="callback failed", exc_info=e)
+
+    def get_queue(self, topic: str = "/") -> asyncio.Queue[Message]:
+        """
+        Convenience method for a queue interface.
+        """
+        queue = asyncio.Queue[Message]()
+
+        def observer_callback(message: Message) -> None:
+            queue.put_nowait(message)
+
+        self.register_as_observer(
+            registration=Registration(
+                topic=topic,
+                callback=observer_callback,
+            )
+        )
+        return queue

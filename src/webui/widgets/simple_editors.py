@@ -12,8 +12,9 @@ import nicegui.events
 import pydantic_core
 from nicegui import ui
 
-from utils import util_observer
 from utils.util_pydantic import FieldInfoIter
+from utils_observer.util_message import Message, MessageVerb
+from utils_observer.util_observer import ItemQuality, ObservableItem, Observer
 
 logger = logging.getLogger(__file__)
 
@@ -27,12 +28,12 @@ STYLE_ENTRY = "w-1/2"  # 50% of the page width. It would be better to use: Quasa
 
 def bind_quality_bg_color(
     element: nicegui.element.Element,
-    observable: util_observer.ObservableItem,
+    observable: ObservableItem,
 ) -> None:
-    quality_bg_colors: dict[util_observer.EnumItemQuality, str] = {
-        util_observer.EnumItemQuality.UNKNOWN: "grey-4",
-        util_observer.EnumItemQuality.KNOWN: "green-1",
-        util_observer.EnumItemQuality.IN_TRANSITION: "orange-1",
+    quality_bg_colors: dict[ItemQuality, str] = {
+        ItemQuality.UNKNOWN: "grey-4",
+        ItemQuality.KNOWN: "green-1",
+        ItemQuality.IN_TRANSITION: "orange-1",
     }
     nicegui.binding.bind_from(
         element._props,
@@ -44,11 +45,11 @@ def bind_quality_bg_color(
     )
 
 
-def create_quality_label(observable: util_observer.ObservableItem) -> None:
-    quality_colors: dict[util_observer.EnumItemQuality, str] = {
-        util_observer.EnumItemQuality.UNKNOWN: "var(--q-grey-6)",
-        util_observer.EnumItemQuality.KNOWN: "var(--q-positive)",
-        util_observer.EnumItemQuality.IN_TRANSITION: "var(--q-warning)",
+def create_quality_label(observable: ObservableItem) -> None:
+    quality_colors: dict[ItemQuality, str] = {
+        ItemQuality.UNKNOWN: "var(--q-grey-6)",
+        ItemQuality.KNOWN: "var(--q-positive)",
+        ItemQuality.IN_TRANSITION: "var(--q-warning)",
     }
 
     (
@@ -66,7 +67,7 @@ def create_quality_label(observable: util_observer.ObservableItem) -> None:
 
 
 async def set_and_validate(
-    observer: util_observer.Observer,
+    observer: Observer,
     topic: str,
     field: FieldInfoIter,
     event: nicegui.events.UiEventArguments,
@@ -84,9 +85,9 @@ async def set_and_validate(
             logger.warning(f"{topic}: {msg}")
 
         observer.send_message(
-            util_observer.Message(
+            Message(
                 topic=topic,
-                verb=util_observer.EnumMessageVerb.SET_REQUEST,
+                verb=MessageVerb.SET_REQUEST,
                 topic_value=topic_value,
             )
         )
@@ -95,7 +96,7 @@ async def set_and_validate(
 
 
 def create_text_field(
-    observer: util_observer.Observer,
+    observer: Observer,
     topic: str,
     field: FieldInfoIter,
 ) -> None:
@@ -126,7 +127,7 @@ def create_text_field(
 
 
 def create_integer_field(
-    observer: util_observer.Observer,
+    observer: Observer,
     topic: str,
     field: FieldInfoIter,
 ) -> None:
@@ -160,7 +161,7 @@ def create_integer_field(
 
 
 def create_slider_field(
-    observer: util_observer.Observer,
+    observer: Observer,
     topic: str,
     field: FieldInfoIter,
 ) -> None:
@@ -193,7 +194,7 @@ def create_slider_field(
 
 
 def create_selection_field(
-    observer: util_observer.Observer,
+    observer: Observer,
     topic: str,
     field: FieldInfoIter,
     options: list | dict,
@@ -224,7 +225,7 @@ def create_selection_field(
 
 
 def create_float_field(
-    observer: util_observer.Observer,
+    observer: Observer,
     topic: str,
     field: FieldInfoIter,
 ) -> None:
@@ -261,7 +262,7 @@ class TypeMapNiceGUI(
     dict[
         type,
         typing.Callable[
-            [util_observer.Observer, str, FieldInfoIter],
+            [Observer, str, FieldInfoIter],
             None,
         ],
     ]
