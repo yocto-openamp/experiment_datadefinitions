@@ -51,17 +51,36 @@ class ObservableItem:
         return self.quality.value
 
 
+@dataclasses.dataclass(frozen=True)
+class Registration:
+    topic: str
+    """
+    Example: "/uart", "/m7"
+
+    If we are "/uart", we only will get notifications from "/m7".
+    If we are "", we will get notifications from everywhere.
+    """
+
+    callback: typing.Callable[[Message], None]
+
+
 class Observer:
     def __init__(self) -> None:
         self.items: dict[str, ObservableItem] = {}
-        self.observer_callbacks: list[typing.Callable] = []
-        self.notify_active = 0
+        """
+        Key: topic
+        """
 
-    def register_observer_callback(
+        self.observer_registrations: list[Registration] = []
+
+    def register_as_observer(
         self,
-        callback: typing.Callable[[Message], None],
+        registration: Registration,
     ) -> None:
-        self.observer_callbacks.append(callback)
+        assert isinstance(registration, Registration)
+        assert isinstance(registration.topic, str)
+
+        self.observer_registrations.append(registration)
 
     def get_item(self, topic: str) -> ObservableItem:
         item = self.items.get(topic)
@@ -69,6 +88,9 @@ class Observer:
         return item
 
     async def set_quality_known(self, quality_int: int) -> None:
+        """
+        For demo purpose: set the all items to KNOWN randomly
+        """
         quality = EnumItemQuality.KNOWN if quality_int else EnumItemQuality.UNKNOWN
         items = list(self.items.values())
         random.shuffle(items)
@@ -76,10 +98,15 @@ class Observer:
             item.quality = quality
             await asyncio.sleep(0.2)
 
-    def send_message_sync(self, message: Message) -> None:
+    def send_message(self, message: Message) -> None:
         assert isinstance(message, Message)
         assert isinstance(message.verb, EnumMessageVerb)
         assert isinstance(message.topic, str)
+
+        if message.verb == EnumMessageVerb.SET_REQUEST:
+            self._set_request(message=message)
+            self._call_callbacks(message=message)
+            return
 
         if message.verb == EnumMessageVerb.REGISTER:
             self._register_topic(message=message)
@@ -91,66 +118,44 @@ class Observer:
             self._call_callbacks(message=message)
             return
 
-        assert False, "SET_REQUEST must be call async!"
-
-    async def send_message(self, message: Message) -> None:
-        if message.verb == EnumMessageVerb.SET_REQUEST:
-            await self._set_request(message=message)
-            self._call_callbacks(message=message)
-            return
-
-        self.send_message_sync(message=message)
+        raise ValueError(f"Unknown Verb {message.verb}!")
 
     def _register_topic(self, message: Message) -> None:
-        print(f"register_with_value({message.topic}, {message.topic_value}")
+        msg = f"register_topic({message.topic}, {message.topic_value})"
+        logger.info(msg)
         if message.topic in self.items:
-            logger.error(f"Already registered in observer: {message.topic}")
+            logger.error(f"{msg}: Already registered!")
             return
+
         self.items[message.topic] = ObservableItem(
             topic=message.topic,
             topic_value=message.topic_value,
             quality=EnumItemQuality.UNKNOWN,
         )
 
-    async def _set_request(self, message: Message) -> typing.Any:
+    def _set_request(self, message: Message) -> None:
         """
         Returns the value which has been set.
         """
         # logger.debug(f"set_request({message.topic}, {message.topic_value})")
         item = self.get_item(topic=message.topic)
-        # .value = value
         item.quality = EnumItemQuality.IN_TRANSITION
-        self.notify_active += 1
-        try:
-            await asyncio.sleep(2)
-        finally:
-            self.notify_active -= 1
-        if self.notify_active > 0:
-            # Avoid cycling
-            return
-        self._notify(
-            Message(
-                topic=message.topic,
-                verb=EnumMessageVerb.NOTIFY,
-                topic_value=message.topic_value,
-            )
-        )
-        return message.topic_value
 
     def _notify(self, message: Message) -> None:
         # logger.debug(f"notify({message.topic}, {message.topic_value})")
-        self.notify_active += 1
-        try:
-            item = self.get_item(topic=message.topic)
-            if item.topic_value != message.topic_value:
-                item.topic_value = message.topic_value
-            item.quality = EnumItemQuality.KNOWN
-        finally:
-            self.notify_active -= 1
+        item = self.get_item(topic=message.topic)
+        if item.topic_value != message.topic_value:
+            item.topic_value = message.topic_value
+        item.quality = EnumItemQuality.KNOWN
 
     def _call_callbacks(self, message: Message) -> None:
-        for callback in self.observer_callbacks:
+        for registration in self.observer_registrations:
+            assert isinstance(registration, Registration)
             try:
-                callback(message)
+                # if message.verb == EnumMessageVerb.NOTIFY:
+                #     if message.topic.startswith(registration.topic):
+                #         # Do not send back the notification to the source
+                #         continue
+                registration.callback(message)
             except Exception as e:
                 logger.exception(msg="callback failed", exc_info=e)

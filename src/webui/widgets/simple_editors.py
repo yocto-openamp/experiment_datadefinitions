@@ -80,10 +80,10 @@ async def set_and_validate(
             field.set_value(topic_value)
         except pydantic_core.ValidationError as e:
             msg = e.errors()[0]["msg"]
-            event.sender.error = msg
+            event.sender.error = msg  # type: ignore[attr-defined]
             logger.warning(f"{topic}: {msg}")
 
-        await observer.send_message(
+        observer.send_message(
             util_observer.Message(
                 topic=topic,
                 verb=util_observer.EnumMessageVerb.SET_REQUEST,
@@ -138,8 +138,8 @@ def create_integer_field(
         ui.number(
             label=field.title,
             value=value,
-            min=field.get_annotation(annotated_types.Ge).ge,
-            max=field.get_annotation(annotated_types.Le).le,
+            min=field.get_annotation(annotated_types.Ge).ge,  # type: ignore[arg-type]
+            max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
             step=1,
             suffix=unit,
             on_change=lambda event: set_and_validate(
@@ -172,8 +172,8 @@ def create_slider_field(
     slider_element = (
         ui.slider(
             value=value,
-            min=field.get_annotation(annotated_types.Ge).ge,
-            max=field.get_annotation(annotated_types.Le).le,
+            min=field.get_annotation(annotated_types.Ge).ge,  # type: ignore[arg-type]
+            max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
             step=1,
             on_change=lambda event: set_and_validate(
                 observer=observer,

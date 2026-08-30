@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import typing
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -32,7 +33,7 @@ class TypeSourceC:
     def decode_c_string(value: object) -> str:
         if isinstance(value, bytes):
             return value.split(b"\0", 1)[0].decode("utf-8")
-        return bytes(value).split(b"\0", 1)[0].decode("utf-8")
+        return bytes(value).split(b"\0", 1)[0].decode("utf-8")  # type: ignore[call-overload]
 
     @staticmethod
     def to_c_literal(value: object) -> str:
@@ -40,8 +41,10 @@ class TypeSourceC:
             return f'"{value}"'
         return str(value)
 
+
 class TypeMapC(dict[type, TypeSourceC]):
-    pass
+    def get2(self, type_var: typing.Any) -> TypeSourceC:
+        return self[type_var]
 
 
 TYPE_MAP_C = TypeMapC(
@@ -49,24 +52,23 @@ TYPE_MAP_C = TypeMapC(
         str: TypeSourceC(
             c_source="char {name}[32];",
             ctypes_type=ctypes.c_char * 32,
-            to_ctypes=lambda value: value.encode("utf-8"),
+            to_ctypes=lambda value: value.encode("utf-8"),  # type: ignore[attr-defined]
             from_ctypes=TypeSourceC.decode_c_string,
         ),
         int: TypeSourceC(
             c_source="uint32_t {name};",
             ctypes_type=ctypes.c_uint32,
-            to_ctypes=lambda value: ctypes.c_uint32(int(value)),
-            from_ctypes=lambda value: int(value),
+            to_ctypes=lambda value: ctypes.c_uint32(int(value)),  # type: ignore[call-overload]
+            from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
         ),
         float: TypeSourceC(
             c_source="double {name};",
             ctypes_type=ctypes.c_double,
-            to_ctypes=lambda value: ctypes.c_double(float(value)),
-            from_ctypes=lambda value: float(value),
+            to_ctypes=lambda value: ctypes.c_double(float(value)),  # type: ignore[attr-defined,arg-type]
+            from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
         ),
     }
 )
-
 
 
 class RendererC:
@@ -96,11 +98,11 @@ class RendererC:
                     f"Unsupported field type for '{field.field_name}': {annotation}"
                 )
 
-            comment = self._render_comment(field            )
+            comment = self._render_comment(field)
             if comment:
                 lines.append(f"    // {comment}")
 
-            c_decl = TYPE_MAP_C[annotation].c_source.format(name=field.field_name)
+            c_decl = TYPE_MAP_C.get2(annotation).c_source.format(name=field.field_name)
             lines.append(f"    {c_decl}")
 
         struct_name = type(self.model).__name__
@@ -199,4 +201,4 @@ class RendererC:
     def _type_source_for_annotation(cls, annotation: object) -> TypeSourceC:
         if annotation not in TYPE_MAP_C:
             raise ValueError(f"Unsupported field type for serialization: {annotation}")
-        return TYPE_MAP_C[annotation]
+        return TYPE_MAP_C.get2(annotation)

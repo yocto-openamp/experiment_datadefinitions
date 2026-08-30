@@ -46,7 +46,7 @@ class FieldInfoIter:
             if self.field_info.json_schema_extra is None:
                 return SchemaExtra()
             assert isinstance(self.field_info.json_schema_extra, dict)
-            extra = SchemaExtra(**self.field_info.json_schema_extra)
+            extra = SchemaExtra(**self.field_info.json_schema_extra)  # type: ignore[arg-type]
             return extra
         except Exception as e:
             logger.error(f"Field '{self.field_name}': {e}!")
@@ -100,7 +100,7 @@ class SchemaExtra:
 
 @dataclasses.dataclass(frozen=True)
 class FieldHierarchy:
-    path: str
+    topic: str
     field: FieldInfoIter
 
     @property
@@ -135,14 +135,14 @@ class ModelHierarchy:
         assert isinstance(self.model, pydantic.BaseModel)
         assert isinstance(self.field, util_pydantic.FieldInfoIter | None)
         assert isinstance(self.parent, ModelHierarchy | None)
-        for v in self.elements.keys():
-            assert isinstance(v, str)
-        for v in self.elements.values():
-            assert isinstance(v, util_pydantic.FieldInfoIter)
-        for v in self.compounds.keys():
-            assert isinstance(v, str)
-        for v in self.compounds.values():
-            assert isinstance(v, ModelHierarchy)
+        for v1 in self.elements.keys():
+            assert isinstance(v1, str)
+        for v2 in self.elements.values():
+            assert isinstance(v2, util_pydantic.FieldInfoIter)
+        for v3 in self.compounds.keys():
+            assert isinstance(v3, str)
+        for v4 in self.compounds.values():
+            assert isinstance(v4, ModelHierarchy)
 
     @staticmethod
     def factory(
@@ -162,9 +162,9 @@ class ModelHierarchy:
 
         for field in util_pydantic.FieldInfoIter.iter_model(model):
             if prefix == "/":
-                path = f"/{field.field_name}"
+                topic = f"/{field.field_name}"
             else:
-                path = f"{prefix}/{field.field_name}"
+                topic = f"{prefix}/{field.field_name}"
             child_model = getattr(model, field.field_name)
 
             # annotation = field.field_info.annotation
@@ -176,7 +176,7 @@ class ModelHierarchy:
                 assert len(child_model) == min_length
 
                 for i, _child_model in enumerate(child_model):
-                    prefix = f"{path}/{i}"
+                    prefix = f"{topic}/{i}"
                     _child_field = util_pydantic.FieldInfoIter(
                         model=_child_model,
                         field_name=field.field_name,
@@ -191,24 +191,24 @@ class ModelHierarchy:
                 continue
 
             if isinstance(child_model, pydantic.BaseModel):
-                mh.compounds[path] = ModelHierarchy.factory(
+                mh.compounds[topic] = ModelHierarchy.factory(
                     parent=mh,
-                    prefix=path,
+                    prefix=topic,
                     field=field,
                     model=child_model,
                 )
                 continue
 
-            mh.elements[path] = field
+            mh.elements[topic] = field
 
         return mh
 
-    def get_by_path(self, path: str) -> FieldHierarchy:
+    def get_by_topic(self, topic: str) -> FieldHierarchy:
         for element in self.iter_elements:
-            if element.path == path:
+            if element.topic == topic:
                 return element
 
-        raise ValueError(f"Path not found in '{self.class_name}': {path}")
+        raise ValueError(f"Path not found in '{self.class_name}': {topic}")
 
     @property
     def title(self) -> str:
@@ -236,14 +236,14 @@ class ModelHierarchy:
 
     @property
     def iter_elements(self) -> typing.Iterator[FieldHierarchy]:
-        for topic, item in self.elements.items():
-            yield FieldHierarchy(path=topic, field=item)
-        for _topic, item in self.compounds.items():
-            yield from item.iter_elements
+        for topic1, item1 in self.elements.items():
+            yield FieldHierarchy(topic=topic1, field=item1)
+        for _topic2, item2 in self.compounds.items():
+            yield from item2.iter_elements
 
     def dump(self):
-        for path, item in self.compounds.items():
-            print(f"compound: {path} - {item.class_name}")
+        for topic, item in self.compounds.items():
+            print(f"compound: {topic} - {item.class_name}")
             item.dump()
-        for path, item in self.elements.items():
-            print(f"element:  {path} - {item.value_type_name}")
+        for topic, item in self.elements.items():
+            print(f"element:  {topic} - {item.value_type_name}")

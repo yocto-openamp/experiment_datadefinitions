@@ -28,7 +28,7 @@ async def namedpipe_task(observer: util_observer.Observer) -> None:
         print(f"{filename}: {text}")
         topic, _, value_text = text.partition(" ")
         topic_value = eval(value_text)
-        observer.send_message_sync(
+        observer.send_message(
             util_observer.Message(
                 topic=topic,
                 verb=util_observer.EnumMessageVerb.NOTIFY,

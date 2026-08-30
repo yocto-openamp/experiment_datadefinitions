@@ -33,25 +33,30 @@ class WebUIState:
         )
         self.uart_connected = False
         for element in self.hierarchy.all_elements:
-            self.observer.send_message_sync(
+            self.observer.send_message(
                 util_observer.Message(
-                    topic=element.path,
+                    topic=element.topic,
                     verb=util_observer.EnumMessageVerb.REGISTER,
                     topic_value=element.value,
                 ),
             )
 
-        self.hierarchy_text = "..."
+        self.hierarchy_text = "...change a value and the hierarchy will appear here..."
 
         def observer_callback(message: util_observer.Message) -> None:
             self.hierarchy_text = "\n".join(
                 [
-                    f"{f.path} {repr(f.value)}"
+                    f"{f.topic} {repr(f.value)} ({message.verb.name})"
                     for f in webui_state.hierarchy.all_elements
                 ]
             )
 
-        self.observer.register_observer_callback(callback=observer_callback)
+        self.observer.register_as_observer(
+            registration=util_observer.Registration(
+                topic="/",
+                callback=observer_callback,
+            )
+        )
 
 
 webui_state = WebUIState()
@@ -88,11 +93,11 @@ async def customer_api_set_request(
         verb=util_observer.EnumMessageVerb.SET_REQUEST,
         topic_value=_topic_value,
     )
-    value_new = await webui_state.observer.send_message(message=message)
+    webui_state.observer.send_message(message=message)
     return {
         "ok": True,
         "topic": topic,
-        "topic_value": value_new,
+        "topic_value": "??",
     }
 
 
@@ -112,7 +117,11 @@ async def customer_api_observer(websocket: WebSocket) -> None:
             },
         )
 
-    webui_state.observer.register_observer_callback(observer_callback)
+    registration = util_observer.Registration(
+        topic=f"{PREFIX_M7}/", callback=observer_callback
+    )
+
+    webui_state.observer.register_as_observer(registration=registration)
 
     try:
         await websocket.send_json({"ok": True, "subscribed": True})
@@ -123,7 +132,7 @@ async def customer_api_observer(websocket: WebSocket) -> None:
         pass
     finally:
         with contextlib.suppress(ValueError):
-            webui_state.observer.observer_callbacks.remove(observer_callback)
+            webui_state.observer.observer_registrations.remove(registration)
 
 
 async def create_app() -> None:
@@ -133,7 +142,7 @@ async def create_app() -> None:
     def dump_elements(mh: util_pydantic.ModelHierarchy) -> None:
         assert isinstance(mh, util_pydantic.ModelHierarchy)
         for topic, item in mh.elements.items():
-            print(f"element:  {topic} - {item.value_type_name}")
+            # logger.debug(f"element:  {topic} - {item.value_type_name}")
             try:
                 f_create_field = simple_editors.TYPE_MAP_NICE_GUI[item.value_type]
             except KeyError:
@@ -143,7 +152,7 @@ async def create_app() -> None:
                 continue
 
             with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
-                f_create_field(observer=webui_state.observer, topic=topic, field=item)
+                f_create_field(observer=webui_state.observer, topic=topic, field=item)  # type: ignore[call-arg]
 
     def dump(mh: util_pydantic.ModelHierarchy) -> None:
         assert isinstance(mh, util_pydantic.ModelHierarchy)
@@ -173,12 +182,12 @@ async def create_app() -> None:
 
         else:
             # Expansion
-            for topic, item in mh.compounds.items():
+            for _topic, item in mh.compounds.items():
                 with ui.expansion(item.title, value=True).classes("w-full"):
-                    print(f"compound: {topic} - {item.model!r}")
+                    # logger.debug(f"compound: {topic} - {item.model!r}")
                     dump_elements(mh=item)
 
-            with ui.expansion("Custom").classes("w-full"):
+            with ui.expansion("Custom", value=True).classes("w-full"):
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
                     topic = f"{PREFIX_M7}/common/debuglevel"
                     simple_editors.create_selection_field(
@@ -191,7 +200,7 @@ async def create_app() -> None:
                         },
                         observer=webui_state.observer,
                         topic=topic,
-                        field=mh.get_by_path(topic).field,
+                        field=mh.get_by_topic(topic).field,
                     )
 
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):
@@ -199,7 +208,7 @@ async def create_app() -> None:
                     simple_editors.create_slider_field(
                         observer=webui_state.observer,
                         topic=topic,
-                        field=mh.get_by_path(topic).field,
+                        field=mh.get_by_topic(topic).field,
                     )
 
                 with ui.row().classes("w-full items-center gap-0 p-0 pl-4"):

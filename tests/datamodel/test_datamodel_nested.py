@@ -10,7 +10,7 @@ DIRECTORY_OF_THIS_FILE = pathlib.Path(__file__).parent
 
 def test_datamodel_nested_duallist() -> None:
     model_duallist = unittests_nested.ModelSystemDualList()
-    (DIRECTORY_OF_THIS_FILE / "model_duallist.py").write_text(
+    (DIRECTORY_OF_THIS_FILE / "generated_model_duallist.dict").write_text(
         repr(model_duallist.model_json_schema())
     )
 
@@ -18,7 +18,7 @@ def test_datamodel_nested_duallist() -> None:
     mh = util_pydantic.ModelHierarchy.factory(model=model_duallist)
     elements = mh.all_elements
     assert len(elements) == 13
-    path_vs_value = [(e.path, e.value) for e in elements]
+    path_vs_value = [(e.topic, e.value) for e in elements]
     assert path_vs_value == [
         ("/debuglevel", 4095),
         ("/axis_x/name", "Axis X"),
@@ -34,7 +34,7 @@ def test_datamodel_nested_duallist() -> None:
         ("/controllers/1/value", 4095),
         ("/controllers/1/i_param", 0.25),
     ]
-    x = mh.get_by_path("/controllers/1/name")
+    x = mh.get_by_topic("/controllers/1/name")
     assert x.value == "Axis S"
     print("+++")
     pass
@@ -43,7 +43,7 @@ def test_datamodel_nested_duallist() -> None:
 def test_datamodel_nested_list() -> None:
     model_list = unittests_nested.ModelSystemList()
     assert len(model_list.controllers) == 2
-    (DIRECTORY_OF_THIS_FILE / "schema_model_list.py").write_text(
+    (DIRECTORY_OF_THIS_FILE / "generated_schema_model_list.dict").write_text(
         repr(model_list.model_json_schema())
     )
 
