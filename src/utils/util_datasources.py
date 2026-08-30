@@ -3,7 +3,7 @@ import os
 import pathlib
 import stat
 
-from . import util_observer
+from utils_observer import util_observer
 
 
 async def namedpipe_task(observer: util_observer.Observer) -> None:
@@ -31,7 +31,7 @@ async def namedpipe_task(observer: util_observer.Observer) -> None:
         observer.send_message(
             util_observer.Message(
                 topic=topic,
-                verb=util_observer.EnumMessageVerb.NOTIFY,
+                verb=util_observer.MessageVerb.NOTIFY,
                 topic_value=topic_value,
             )
         )

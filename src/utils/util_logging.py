@@ -1,13 +1,34 @@
+import asyncio
 import logging
+import sys
+import threading
 
 from nicegui import ui
 
+logger = logging.getLogger(__name__)
+
 
 def init_logging() -> None:
+    # or run with PYTHONASYNCIODEBUG=1
+    asyncio.get_running_loop().set_debug(True)
+
+    if False:
+
+        def _thread_excepthook(args: threading.ExceptHookArgs) -> None:
+            logger.error(
+                "thread %s crashed",
+                args.thread.name if args.thread else "?",
+                exc_info=(args.exc_type, args.exc_value, args.exc_traceback),  # type: ignore[arg-type]
+            )
+
+        threading.excepthook = _thread_excepthook
+        sys.excepthook = lambda *a: logger.error("uncaught", exc_info=a)
+
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s %(levelname)s %(message)s",
     )
+    logging.getLogger("asyncio").setLevel(logging.DEBUG)
 
 
 class LogElementHandler(logging.Handler):

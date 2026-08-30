@@ -14,9 +14,10 @@ from utils import (
     util_datasinks,
     util_datasources,
     util_logging,
-    util_observer,
     util_pydantic,
 )
+from utils_observer.util_message import Message, MessageVerb
+from utils_observer.util_observer import Observer, Registration
 from webui.widgets import simple_editors
 
 logger = logging.getLogger(__file__)
@@ -26,7 +27,7 @@ util_logging.init_logging()
 
 class WebUIState:
     def __init__(self) -> None:
-        self.observer = util_observer.Observer()
+        self.observer = Observer()
         self.model = ModelSystemDual()
         self.hierarchy = util_pydantic.ModelHierarchy.factory(
             model=self.model, prefix=f"{PREFIX_M7}"
@@ -34,16 +35,16 @@ class WebUIState:
         self.uart_connected = False
         for element in self.hierarchy.all_elements:
             self.observer.send_message(
-                util_observer.Message(
+                Message(
                     topic=element.topic,
-                    verb=util_observer.EnumMessageVerb.REGISTER,
+                    verb=MessageVerb.REGISTER,
                     topic_value=element.value,
                 ),
             )
 
         self.hierarchy_text = "...change a value and the hierarchy will appear here..."
 
-        def observer_callback(message: util_observer.Message) -> None:
+        def observer_callback(message: Message) -> None:
             self.hierarchy_text = "\n".join(
                 [
                     f"{f.topic} {repr(f.value)} ({message.verb.name})"
@@ -52,7 +53,7 @@ class WebUIState:
             )
 
         self.observer.register_as_observer(
-            registration=util_observer.Registration(
+            registration=Registration(
                 topic="/",
                 callback=observer_callback,
             )
@@ -88,9 +89,9 @@ async def customer_api_set_request(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    message = util_observer.Message(
+    message = Message(
         topic=topic,
-        verb=util_observer.EnumMessageVerb.SET_REQUEST,
+        verb=MessageVerb.SET_REQUEST,
         topic_value=_topic_value,
     )
     webui_state.observer.send_message(message=message)
@@ -107,7 +108,7 @@ async def customer_api_observer(websocket: WebSocket) -> None:
     queue: asyncio.Queue[dict[str, typing.Any]] = asyncio.Queue()
     loop = asyncio.get_running_loop()
 
-    def observer_callback(message: util_observer.Message) -> None:
+    def observer_callback(message: Message) -> None:
         loop.call_soon_threadsafe(
             queue.put_nowait,
             {
@@ -117,9 +118,7 @@ async def customer_api_observer(websocket: WebSocket) -> None:
             },
         )
 
-    registration = util_observer.Registration(
-        topic=f"{PREFIX_M7}/", callback=observer_callback
-    )
+    registration = Registration(topic=f"{PREFIX_M7}/", callback=observer_callback)
 
     webui_state.observer.register_as_observer(registration=registration)
 
