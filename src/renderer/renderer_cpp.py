@@ -11,12 +11,12 @@ from utils.util_pydantic import FieldInfoIter
 
 
 @dataclass(frozen=True)
-class TypeSourceC:
+class TypeSourceCPP:
     """
     This is the mapping of the python datatype to the C code.
     """
 
-    c_source: str
+    cpp_source: str
     """
     Example: "int32", "const char*", "float"
     """
@@ -42,27 +42,27 @@ class TypeSourceC:
         return str(value)
 
 
-class TypeMapC(dict[type, TypeSourceC]):
-    def get2(self, type_var: typing.Any) -> TypeSourceC:
+class TypeMapCPP(dict[type, TypeSourceCPP]):
+    def get2(self, type_var: typing.Any) -> TypeSourceCPP:
         return self[type_var]
 
 
-TYPE_MAP_C = TypeMapC(
+TYPE_MAP_CPP = TypeMapCPP(
     {
-        str: TypeSourceC(
-            c_source="char {name}[32];",
+        str: TypeSourceCPP(
+            cpp_source="char {name}[32];",
             ctypes_type=ctypes.c_char * 32,
             to_ctypes=lambda value: value.encode("utf-8"),  # type: ignore[attr-defined]
-            from_ctypes=TypeSourceC.decode_c_string,
+            from_ctypes=TypeSourceCPP.decode_c_string,
         ),
-        int: TypeSourceC(
-            c_source="uint32_t {name};",
+        int: TypeSourceCPP(
+            cpp_source="uint32_t {name};",
             ctypes_type=ctypes.c_uint32,
             to_ctypes=lambda value: ctypes.c_uint32(int(value)),  # type: ignore[call-overload]
             from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
         ),
-        float: TypeSourceC(
-            c_source="double {name};",
+        float: TypeSourceCPP(
+            cpp_source="double {name};",
             ctypes_type=ctypes.c_double,
             to_ctypes=lambda value: ctypes.c_double(float(value)),  # type: ignore[attr-defined,arg-type]
             from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
@@ -71,29 +71,28 @@ TYPE_MAP_C = TypeMapC(
 )
 
 
-class RendererC:
+class RendererCPP:
     """Render a simple C struct definition from a Pydantic model."""
 
     def __init__(self, model: BaseModel) -> None:
         self.model = model
         self.ctypes_model = self._create_ctypes_model()
 
-    def render_c_struct(self) -> str:
+    def render_cpp_struct(self) -> str:
         """
         Render 'self.model' into something like:
 
-            typedef struct
-            {
+            typedef struct __attribute__((packed)) {
                 char name[32];
                 uint32_t value;
                 double i_param;
             } ModelPidController_t;
         """
-        lines = ["", "typedef struct", "{"]
+        lines = ["", "typedef struct __attribute__((packed)) {"]
 
         for field in FieldInfoIter.iter_model(self.model):
             annotation = field.field_info.annotation
-            if annotation not in TYPE_MAP_C:
+            if annotation not in TYPE_MAP_CPP:
                 raise ValueError(
                     f"Unsupported field type for '{field.field_name}': {annotation}"
                 )
@@ -102,34 +101,34 @@ class RendererC:
             if comment:
                 lines.append(f"    // {comment}")
 
-            c_decl = TYPE_MAP_C.get2(annotation).c_source.format(name=field.field_name)
-            lines.append(f"    {c_decl}")
+            cpp_decl = TYPE_MAP_CPP.get2(annotation).cpp_source.format(name=field.field_name)
+            lines.append(f"    {cpp_decl}")
 
         struct_name = type(self.model).__name__
         lines.extend([f"}} {struct_name}_t;", ""])
         return "\n".join(lines)
 
-    def render_c_initializer(self) -> str:
+    def render_cpp_initializer(self) -> str:
         struct_name = type(self.model).__name__
         var_name = self._model_var_name(struct_name)
 
         lines = ["", f"static const {struct_name}_t {var_name} = {{"]
 
         for field in FieldInfoIter.iter_model(self.model):
-            if field.value_type not in TYPE_MAP_C:
+            if field.value_type not in TYPE_MAP_CPP:
                 raise ValueError(
                     f"Unsupported field type for '{field.field_name}': {field.value_type_name}"
                 )
 
-            c_init_value = field.schema.get("CInitValue")
-            if c_init_value is None:
+            cpp_init_value = field.schema.get("CPPInitValue")
+            if cpp_init_value is None:
                 if field.field_info.is_required():
                     raise ValueError(
-                        f"Field '{field.field_name}' is required and has no default/CInitValue"
+                        f"Field '{field.field_name}' is required and has no default/CPPInitValue"
                     )
-                c_init_value = TypeSourceC.to_c_literal(field.get_value())
+                cpp_init_value = TypeSourceCPP.to_c_literal(field.get_value())
 
-            lines.append(f"    {c_init_value},")
+            lines.append(f"    {cpp_init_value},")
 
         if len(lines) > 2:
             lines[-1] = lines[-1].rstrip(",")
@@ -137,7 +136,7 @@ class RendererC:
         lines.extend(["};", ""])
         return "\n".join(lines)
 
-    def serialize_to_c(self, model: BaseModel) -> bytes:
+    def serialize_to_cpp(self, model: BaseModel) -> bytes:
         assert type(self.model) is type(model)
         instance = self.ctypes_model()
         for field in FieldInfoIter.iter_model(self.model):
@@ -151,7 +150,7 @@ class RendererC:
 
         return bytes(instance)
 
-    def deserialize_from_c(self, serizalized: bytes) -> BaseModel:
+    def deserialize_from_cpp(self, serizalized: bytes) -> BaseModel:
         instance = self.ctypes_model.from_buffer_copy(serizalized)
         model_data = {}
 
@@ -184,7 +183,7 @@ class RendererC:
 
     def _create_ctypes_model(self) -> type[ctypes.Structure]:
         """
-        Create the ctypes structure matching the C layout of the model.
+        Create the ctypes structure matching the packed C layout of the model.
         """
         fields = []
         for field in FieldInfoIter.iter_model(self.model):
@@ -193,12 +192,15 @@ class RendererC:
             fields.append((field.field_name, ctypes_type))
 
         class SerializedModel(ctypes.Structure):
+            # python >= 3.14 deprecates '_pack_' without '_layout_' on non-windows
+            _layout_ = "ms"
+            _pack_ = 1
             _fields_ = fields
 
         return SerializedModel
 
     @classmethod
-    def _type_source_for_annotation(cls, annotation: object) -> TypeSourceC:
-        if annotation not in TYPE_MAP_C:
+    def _type_source_for_annotation(cls, annotation: object) -> TypeSourceCPP:
+        if annotation not in TYPE_MAP_CPP:
             raise ValueError(f"Unsupported field type for serialization: {annotation}")
-        return TYPE_MAP_C.get2(annotation)
+        return TYPE_MAP_CPP.get2(annotation)

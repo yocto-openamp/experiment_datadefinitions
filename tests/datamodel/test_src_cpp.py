@@ -3,15 +3,15 @@ import re
 import subprocess
 
 from datamodel import unittests_simple
-from renderer import renderer_c
+from renderer import renderer_cpp
 
 DIRECTORY_OF_THIS_FILE = pathlib.Path(__file__).parent
-DIRECTORY_SRC_C = DIRECTORY_OF_THIS_FILE / "src_c"
+DIRECTORY_SRC_CPP = DIRECTORY_OF_THIS_FILE / "src_cpp"
 
 
-def test_src_c() -> None:
+def test_src_cpp() -> None:
     model = unittests_simple.ModelPidController(name="Axis W", value=42, i_param=3.14)
-    renderer = renderer_c.RendererC(model=model)
+    renderer = renderer_cpp.RendererCPP(model=model)
 
     def generate_compile() -> None:
         """
@@ -21,17 +21,17 @@ def test_src_c() -> None:
             filename.write_text(source)
 
         generate(
-            DIRECTORY_SRC_C / "generated_pid_controller_struct.h",
-            renderer.render_c_struct(),
+            DIRECTORY_SRC_CPP / "generated_pid_controller_struct.hpp",
+            renderer.render_cpp_struct(),
         )
         generate(
-            DIRECTORY_SRC_C / "generated_pid_controller_initializer.h",
-            renderer.render_c_initializer(),
+            DIRECTORY_SRC_CPP / "generated_pid_controller_initializer.hpp",
+            renderer.render_cpp_initializer(),
         )
 
         subprocess.run(
-            ["gcc", "-Wall", "-Wextra", "dump_values.c", "-o", "dump_values"],
-            cwd=DIRECTORY_SRC_C,
+            ["g++", "-Wall", "-Wextra", "dump_values.cpp", "-o", "dump_values"],
+            cwd=DIRECTORY_SRC_CPP,
             check=True,
         )
 
@@ -41,7 +41,7 @@ def test_src_c() -> None:
         """
         result = subprocess.run(
             ["./dump_values"],
-            cwd=DIRECTORY_SRC_C,
+            cwd=DIRECTORY_SRC_CPP,
             check=True,
             capture_output=True,
             text=True,
@@ -57,8 +57,9 @@ def test_src_c() -> None:
     generate_compile()
     serialized = run()
 
-    model3 = renderer.deserialize_from_c(serizalized=serialized)
+    model3 = renderer.deserialize_from_cpp(serizalized=serialized)
     assert isinstance(model3, unittests_simple.ModelPidController)
     assert model3.name == model.name
     assert model3.value == model.value
     assert model3.i_param == model.i_param
+    assert len(serialized) == 44

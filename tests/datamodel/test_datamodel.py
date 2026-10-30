@@ -1,6 +1,6 @@
 
 from datamodel import unittests_simple
-from renderer import renderer_c
+from renderer import renderer_cpp
 
 
 def test_datamodel_fields_are_set() -> None:
@@ -11,9 +11,8 @@ def test_datamodel_fields_are_set() -> None:
     assert model.i_param == 3.14
 
 
-EXPECTED_C_STRUCT = """
-typedef struct
-{
+EXPECTED_CPP_STRUCT = """
+typedef struct __attribute__((packed)) {
     // Name of the controlled axis
     char name[32];
     // [steps (4096 steps = 1 revolution)] Encoder steps
@@ -23,7 +22,7 @@ typedef struct
 } ModelPidController_t;
 """
 
-EXPECTED_C_INITIALIZER = """
+EXPECTED_CPP_INITIALIZER = """
 static const ModelPidController_t pid_controller = {
     "Axis W",
     42,
@@ -32,25 +31,25 @@ static const ModelPidController_t pid_controller = {
 """
 
 
-def test_renderer_c() -> None:
+def test_renderer_cpp() -> None:
     model = unittests_simple.ModelPidController(name="Axis W", value=42, i_param=3.14)
-    renderer = renderer_c.RendererC(model=model)
+    renderer = renderer_cpp.RendererCPP(model=model)
 
-    c_struct = renderer.render_c_struct()
-    assert c_struct == EXPECTED_C_STRUCT
+    cpp_struct = renderer.render_cpp_struct()
+    assert cpp_struct == EXPECTED_CPP_STRUCT
 
-    c_initializer = renderer.render_c_initializer()
-    assert c_initializer == EXPECTED_C_INITIALIZER
+    cpp_initializer = renderer.render_cpp_initializer()
+    assert cpp_initializer == EXPECTED_CPP_INITIALIZER
 
     model2 = unittests_simple.ModelPidController(name="sensor", value=43, i_param=3.141)
-    serialized = renderer.serialize_to_c(model=model2)
+    serialized = renderer.serialize_to_cpp(model=model2)
 
     decoded = renderer.ctypes_model.from_buffer_copy(serialized)
     assert decoded.name.split(b"\0", 1)[0] == b"sensor"
     assert decoded.value == 43
     assert decoded.i_param == 3.141
 
-    model3 = renderer.deserialize_from_c(serizalized=serialized)
+    model3 = renderer.deserialize_from_cpp(serizalized=serialized)
     assert isinstance(model3, unittests_simple.ModelPidController)
     assert model3.name == model2.name
     assert model3.value == model2.value

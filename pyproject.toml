@@ -4,7 +4,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "experiment-datadefinitions"
-version = "0.1.0"
+version = "0.2.0"
 description = "Minimal Python skeleton with Pydantic and pytest."
 requires-python = ">=3.10"
 dependencies = [
@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.pdm]
-version = "0.0.1"
+version = "0.2.0"
 distribution = true
 
 [tool.pdm.build]
