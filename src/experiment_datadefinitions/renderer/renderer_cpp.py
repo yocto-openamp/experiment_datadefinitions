@@ -62,9 +62,9 @@ TYPE_MAP_CPP = TypeMapCPP(
             from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
         ),
         float: TypeSourceCPP(
-            cpp_source="double {name};",
-            ctypes_type=ctypes.c_double,
-            to_ctypes=lambda value: ctypes.c_double(float(value)),  # type: ignore[attr-defined,arg-type]
+            cpp_source="float {name};",
+            ctypes_type=ctypes.c_float,
+            to_ctypes=lambda value: ctypes.c_float(float(value)),  # type: ignore[attr-defined,arg-type]
             from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
         ),
     }
@@ -85,7 +85,7 @@ class RendererCPP:
             typedef struct __attribute__((packed)) {
                 char name[32];
                 uint32_t value;
-                double i_param;
+                float i_param;
             } ModelPidController_t;
         """
         lines = ["", "typedef struct __attribute__((packed)) {"]

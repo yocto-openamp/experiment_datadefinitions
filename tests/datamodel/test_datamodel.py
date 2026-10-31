@@ -1,4 +1,6 @@
 
+import pytest
+
 from experiment_datadefinitions.datamodel import unittests_simple
 from experiment_datadefinitions.renderer import renderer_cpp
 
@@ -18,7 +20,7 @@ typedef struct __attribute__((packed)) {
     // [steps (4096 steps = 1 revolution)] Encoder steps
     uint32_t value;
     // [s] Integral gain (I) of the PID controller
-    double i_param;
+    float i_param;
 } ModelPidController_t;
 """
 
@@ -47,11 +49,11 @@ def test_renderer_cpp() -> None:
     decoded = renderer.ctypes_model.from_buffer_copy(serialized)
     assert decoded.name.split(b"\0", 1)[0] == b"sensor"
     assert decoded.value == 43
-    assert decoded.i_param == 3.141
+    assert decoded.i_param == pytest.approx(3.141, rel=1e-6)
 
     model3 = renderer.deserialize_from_cpp(serizalized=serialized)
     assert isinstance(model3, unittests_simple.ModelPidController)
     assert model3.name == model2.name
     assert model3.value == model2.value
-    assert model3.i_param == model2.i_param
+    assert model3.i_param == pytest.approx(model2.i_param, rel=1e-6)
 

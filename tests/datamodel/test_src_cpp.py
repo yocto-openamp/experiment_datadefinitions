@@ -2,6 +2,8 @@ import pathlib
 import re
 import subprocess
 
+import pytest
+
 from experiment_datadefinitions.datamodel import unittests_simple
 from experiment_datadefinitions.renderer import renderer_cpp
 
@@ -61,5 +63,5 @@ def test_src_cpp() -> None:
     assert isinstance(model3, unittests_simple.ModelPidController)
     assert model3.name == model.name
     assert model3.value == model.value
-    assert model3.i_param == model.i_param
-    assert len(serialized) == 44
+    assert model3.i_param == pytest.approx(model.i_param, rel=1e-6)
+    assert len(serialized) == 40
