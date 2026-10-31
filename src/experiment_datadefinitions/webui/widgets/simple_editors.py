@@ -111,7 +111,7 @@ def create_text_field(
 
     input_element = (
         ui.input(
-            label=field.title,
+            label=f"{field.title} (text)",
             value=value,
             suffix=unit,
             on_change=lambda event: set_and_validate(
@@ -141,7 +141,7 @@ def create_integer_field(
     value = field.get_value()
     number_element = (
         ui.number(
-            label=field.title,
+            label=f"{field.title} (int)",
             value=value,
             min=field.get_annotation(annotated_types.Ge).ge,  # type: ignore[arg-type]
             max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
@@ -208,7 +208,7 @@ def create_selection_field(
     value = field.get_value()
     select_element = (
         ui.select(
-            label=field.title,
+            label=f"{field.title} (selection)",
             options=options,
             value=value,
             on_change=lambda event: set_and_validate(
@@ -240,7 +240,7 @@ def create_float_field(
 
     number_element = (
         ui.number(
-            label=field.title,
+            label=f"{field.title} (float)",
             value=value,
             min=field.schema.get("minimum"),
             max=field.schema.get("maximum"),
