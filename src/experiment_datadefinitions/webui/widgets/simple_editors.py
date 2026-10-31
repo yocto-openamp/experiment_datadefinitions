@@ -20,7 +20,7 @@ from experiment_datadefinitions.utils_observer.util_observer import (
     Observer,
 )
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 STYLE_QUALITY = "pl-4"
 # PROPS_ENTRY = "borderless dense"

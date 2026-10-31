@@ -26,7 +26,7 @@ from experiment_datadefinitions.utils_observer.util_observer import (
 )
 from experiment_datadefinitions.webui.widgets import simple_editors
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 util_logging.init_logging()
 

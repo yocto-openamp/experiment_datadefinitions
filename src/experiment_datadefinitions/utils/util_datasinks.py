@@ -6,7 +6,7 @@ from experiment_datadefinitions.utils_observer.util_observer import (
     Registration,
 )
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 def logger_sink(observer: Observer) -> None:

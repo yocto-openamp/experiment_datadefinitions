@@ -9,7 +9,7 @@ import pydantic
 
 from experiment_datadefinitions.utils import util_pydantic
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)

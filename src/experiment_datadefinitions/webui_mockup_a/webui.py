@@ -9,7 +9,7 @@ from nicegui import ui
 
 from experiment_datadefinitions.utils import util_logging
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 util_logging.init_logging()
 

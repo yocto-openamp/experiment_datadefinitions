@@ -9,7 +9,7 @@ import typing
 
 from .util_message import Message, MessageVerb
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class ItemQuality(enum.StrEnum):
