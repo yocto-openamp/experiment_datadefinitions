@@ -1,6 +1,6 @@
 import pydantic
 
-from utils.util_pydantic import SchemaExtra
+from experiment_datadefinitions.utils.util_pydantic import SchemaExtra
 
 from . import unittests_simple
 

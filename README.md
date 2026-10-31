@@ -108,7 +108,7 @@ curl -X 'GET' 'http://127.0.0.1:8000/customer_api/set_request?topic=/m7/axis_x/v
 May be used to feed a customer dashboard or grafana.
 
 ```python
-python -m utils.util_websocket_listener
+python -m experiment_datadefinitions.utils.util_websocket_listener
 Connecting to ws://127.0.0.1:8000/customer_api/observer ...
 Connected. Waiting for notifications...
 {

@@ -1,7 +1,10 @@
 import logging
 
-from utils_observer.util_message import Message
-from utils_observer.util_observer import Observer, Registration
+from experiment_datadefinitions.utils_observer.util_message import Message
+from experiment_datadefinitions.utils_observer.util_observer import (
+    Observer,
+    Registration,
+)
 
 logger = logging.getLogger(__file__)
 

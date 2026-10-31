@@ -12,9 +12,13 @@ import nicegui.events
 import pydantic_core
 from nicegui import ui
 
-from utils.util_pydantic import FieldInfoIter
-from utils_observer.util_message import Message, MessageVerb
-from utils_observer.util_observer import ItemQuality, ObservableItem, Observer
+from experiment_datadefinitions.utils.util_pydantic import FieldInfoIter
+from experiment_datadefinitions.utils_observer.util_message import Message, MessageVerb
+from experiment_datadefinitions.utils_observer.util_observer import (
+    ItemQuality,
+    ObservableItem,
+    Observer,
+)
 
 logger = logging.getLogger(__file__)
 

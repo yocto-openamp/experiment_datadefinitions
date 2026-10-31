@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI
 from nicegui import ui
 
-from utils import util_logging
+from experiment_datadefinitions.utils import util_logging
 
 logger = logging.getLogger(__file__)
 
@@ -134,7 +134,7 @@ ui.run_with(app, title="PID Controller Web UI")
 def main() -> None:
     """Start the WebUI application."""
 
-    uvicorn.run("webui.webui:app", reload=True)
+    uvicorn.run("experiment_datadefinitions.webui_mockup_a.webui:app", reload=True)
 
 
 if __name__ == "__main__":

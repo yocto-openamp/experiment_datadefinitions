@@ -17,7 +17,7 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "webui_mockup_a.webui:app",
+                "experiment_datadefinitions.webui_mockup_a.webui:app",
                 "--reload"
             ],
             "jinja": true
@@ -28,7 +28,7 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "webui.webui:app",
+                "experiment_datadefinitions.webui.webui:app",
                 "--reload"
             ],
             "env": {

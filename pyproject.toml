@@ -26,7 +26,7 @@ distribution = true
 [tool.pdm.build]
 package-dir = "src"
 includes = [
-    "src/",
+    "src/experiment_datadefinitions",
 ]
 source-includes = [
     "LICENSE",

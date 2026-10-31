@@ -2,8 +2,8 @@ import pathlib
 import re
 import subprocess
 
-from datamodel import unittests_simple
-from renderer import renderer_cpp
+from experiment_datadefinitions.datamodel import unittests_simple
+from experiment_datadefinitions.renderer import renderer_cpp
 
 DIRECTORY_OF_THIS_FILE = pathlib.Path(__file__).parent
 DIRECTORY_SRC_CPP = DIRECTORY_OF_THIS_FILE / "src_cpp"

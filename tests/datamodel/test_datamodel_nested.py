@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pathlib
 
-from datamodel import unittests_nested
-from utils import util_pydantic
+from experiment_datadefinitions.datamodel import unittests_nested
+from experiment_datadefinitions.utils import util_pydantic
 
 DIRECTORY_OF_THIS_FILE = pathlib.Path(__file__).parent
 

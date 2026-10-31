@@ -9,16 +9,22 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from nicegui import ui
 
-from datamodel.pid_controller import ModelSystemDual, PREFIX_M7
-from utils import (
+from experiment_datadefinitions.datamodel.pid_controller import (
+    ModelSystemDual,
+    PREFIX_M7,
+)
+from experiment_datadefinitions.utils import (
     util_datasinks,
     util_datasources,
     util_logging,
     util_pydantic,
 )
-from utils_observer.util_message import Message, MessageVerb
-from utils_observer.util_observer import Observer, Registration
-from webui.widgets import simple_editors
+from experiment_datadefinitions.utils_observer.util_message import Message, MessageVerb
+from experiment_datadefinitions.utils_observer.util_observer import (
+    Observer,
+    Registration,
+)
+from experiment_datadefinitions.webui.widgets import simple_editors
 
 logger = logging.getLogger(__file__)
 
@@ -237,7 +243,7 @@ ui.run_with(app, title="PID Controller Web UI")
 def main() -> None:
     """Start the WebUI application."""
 
-    uvicorn.run("webui.webui:app", reload=True)
+    uvicorn.run("experiment_datadefinitions.webui.webui:app", reload=True)
 
 
 if __name__ == "__main__":

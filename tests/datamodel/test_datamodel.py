@@ -1,6 +1,6 @@
 
-from datamodel import unittests_simple
-from renderer import renderer_cpp
+from experiment_datadefinitions.datamodel import unittests_simple
+from experiment_datadefinitions.renderer import renderer_cpp
 
 
 def test_datamodel_fields_are_set() -> None:

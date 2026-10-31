@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from utils.util_pydantic import FieldInfoIter
+from experiment_datadefinitions.utils.util_pydantic import FieldInfoIter
 
 
 @dataclass(frozen=True)

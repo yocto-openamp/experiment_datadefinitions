@@ -7,7 +7,7 @@ import typing
 import annotated_types
 import pydantic
 
-from utils import util_pydantic
+from experiment_datadefinitions.utils import util_pydantic
 
 logger = logging.getLogger(__file__)
 
@@ -34,7 +34,7 @@ class FieldInfoIter:
     @property
     def value_type(self) -> type[typing.Any]:
         assert self.field_info.annotation is not None
-        return self.field_info.annotation
+        return self.field_info.annotation  # type: ignore[return-value]
 
     @property
     def value_type_name(self) -> str:

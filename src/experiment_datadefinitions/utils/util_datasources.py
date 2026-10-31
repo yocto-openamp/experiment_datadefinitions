@@ -3,7 +3,7 @@ import os
 import pathlib
 import stat
 
-from utils_observer import util_observer
+from experiment_datadefinitions.utils_observer import util_observer
 
 
 async def namedpipe_task(observer: util_observer.Observer) -> None:
