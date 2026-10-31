@@ -62,7 +62,7 @@ class Observer:
 
     def get_item(self, topic: str) -> ObservableItem:
         item = self.items.get(topic)
-        assert item is not None
+        assert item is not None, f"'{topic}' is None!"
         return item
 
     async def set_quality_known(self, quality_int: int) -> None:
