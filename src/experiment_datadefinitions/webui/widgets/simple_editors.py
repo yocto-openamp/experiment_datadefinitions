@@ -74,29 +74,52 @@ async def set_and_validate(
     observer: Observer,
     topic: str,
     field: FieldInfoIter,
-    event: nicegui.events.UiEventArguments,
+    event: nicegui.events.GenericEventArguments,
 ) -> None:
     assert isinstance(topic, str)
     assert isinstance(field, FieldInfoIter)
-    assert isinstance(event, nicegui.events.UiEventArguments)
-    if isinstance(event, nicegui.events.ValueChangeEventArguments):
-        topic_value = event.value
-        try:
-            field.set_value(topic_value)
-        except pydantic_core.ValidationError as e:
-            msg = e.errors()[0]["msg"]
-            event.sender.error = msg  # type: ignore[attr-defined]
-            logger.warning(f"{topic}: {msg}")
+    assert isinstance(event, nicegui.events.GenericEventArguments)
 
-        observer.send_message(
-            Message(
-                topic=topic,
-                verb=MessageVerb.SET_REQUEST,
-                topic_value=topic_value,
-            )
+    topic_value = event.sender.value  # type: ignore[attr-defined]
+    try:
+        field.set_value(topic_value)
+    except pydantic_core.ValidationError as e:
+        msg = e.errors()[0]["msg"]
+        event.sender.error = msg  # type: ignore[attr-defined]
+        logger.warning(f"{topic}: {msg}")
+
+    observer.send_message(
+        Message(
+            topic=topic,
+            verb=MessageVerb.SET_REQUEST,
+            topic_value=topic_value,
         )
+    )
 
-    pass
+
+def on_user_change(
+    element: nicegui.element.Element,
+    observer: Observer,
+    topic: str,
+    field: FieldInfoIter,
+) -> None:
+    """
+    Send a SET_REQUEST when the user changes the element in the browser.
+
+    Do not use 'on_change' for this: It also fires when 'bind_value' writes
+    a value into the element, for example a NOTIFY or the initial sync of a new page.
+
+    This listener runs after the one of ValueElement: 'element.value' is up to date.
+    """
+    element.on(
+        f"update:{element.VALUE_PROP}",  # type: ignore[attr-defined]
+        lambda event: set_and_validate(
+            observer=observer,
+            topic=topic,
+            field=field,
+            event=event,
+        ),
+    )
 
 
 def create_text_field(
@@ -114,18 +137,13 @@ def create_text_field(
             label=f"{field.title} (text)",
             value=value,
             suffix=unit,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                topic=topic,
-                field=field,
-                event=event,
-            ),
         )
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
         .bind_value(observable, "topic_value")
     )
+    on_user_change(element=input_element, observer=observer, topic=topic, field=field)
     bind_quality_bg_color(element=input_element, observable=observable)
     create_quality_label(observable=observable)
 
@@ -147,18 +165,13 @@ def create_integer_field(
             max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
             step=1,
             suffix=unit,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                topic=topic,
-                field=field,
-                event=event,
-            ),
         )
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
         .bind_value(observable, "topic_value")
     )
+    on_user_change(element=number_element, observer=observer, topic=topic, field=field)
     bind_quality_bg_color(element=number_element, observable=observable)
 
     create_quality_label(observable=observable)
@@ -180,18 +193,13 @@ def create_slider_field(
             min=field.get_annotation(annotated_types.Ge).ge,  # type: ignore[arg-type]
             max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
             step=1,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                topic=topic,
-                field=field,
-                event=event,
-            ),
         )
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
         .bind_value(observable, "topic_value")
     )
+    on_user_change(element=slider_element, observer=observer, topic=topic, field=field)
     bind_quality_bg_color(element=slider_element, observable=observable)
 
     create_quality_label(observable=observable)
@@ -211,18 +219,13 @@ def create_selection_field(
             label=f"{field.title} (selection)",
             options=options,
             value=value,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                topic=topic,
-                field=field,
-                event=event,
-            ),
         )
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
         .bind_value(observable, "topic_value")
     )
+    on_user_change(element=select_element, observer=observer, topic=topic, field=field)
     bind_quality_bg_color(element=select_element, observable=observable)
 
     create_quality_label(observable=observable)
@@ -246,18 +249,13 @@ def create_float_field(
             max=field.schema.get("maximum"),
             step=0.1,
             suffix=unit,
-            on_change=lambda event: set_and_validate(
-                observer=observer,
-                topic=topic,
-                field=field,
-                event=event,
-            ),
         )
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')
         .classes(STYLE_ENTRY)
         .bind_value(observable, "topic_value")
     )
+    on_user_change(element=number_element, observer=observer, topic=topic, field=field)
     bind_quality_bg_color(element=number_element, observable=observable)
     create_quality_label(observable=observable)
 
