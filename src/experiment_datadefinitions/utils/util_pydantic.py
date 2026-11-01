@@ -93,6 +93,12 @@ class SchemaExtra:
 
     title_lookup: str | None = None
 
+    cpp_type: str | None = None
+    """
+    Overrides the default c++ type of the python type.
+    Examples: uint16_t
+    """
+
     @property
     def dict(self) -> dict[str, typing.Any]:
         return dataclasses.asdict(self)

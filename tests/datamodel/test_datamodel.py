@@ -1,9 +1,12 @@
 
+import typing
+
 import pydantic
 import pytest
 
 from experiment_datadefinitions.datamodel import unittests_simple
 from experiment_datadefinitions.renderer import renderer_cpp
+from experiment_datadefinitions.utils.util_pydantic import SchemaExtra
 
 
 def test_datamodel_fields_are_set() -> None:
@@ -19,7 +22,7 @@ typedef struct __attribute__((packed)) {
     // Name of the controlled axis
     char name[32];
     // [steps (4096 steps = 1 revolution)] Encoder steps
-    uint32_t value;
+    uint16_t value;
     // [s] Integral gain (I) of the PID controller
     float i_param;
 } ModelPidController_t;
@@ -67,4 +70,36 @@ def test_renderer_cpp_missing_cpp_filename() -> None:
 
     with pytest.raises(ValueError, match="'ModelWithoutFilename' has no 'cpp_filename'"):
         _ = renderer.filename_struct
+
+
+EXPECTED_CPP_STRUCT_TYPES = """
+typedef struct __attribute__((packed)) {
+    int16_t value_int16;
+    int32_t value_int32;
+    uint64_t value_uint64;
+    double value_double;
+} ModelTypes_t;
+"""
+
+
+def test_renderer_cpp_types() -> None:
+    def field(default: float, cpp_type: str) -> typing.Any:
+        return pydantic.Field(
+            default=default,
+            json_schema_extra=SchemaExtra(cpp_type=cpp_type).dict,
+        )
+
+    class ModelTypes(pydantic.BaseModel):
+        value_int16: int = field(-32768, "int16_t")
+        value_int32: int = field(-2147483648, "int32_t")
+        value_uint64: int = field(2**64 - 1, "uint64_t")
+        value_double: float = field(1 / 3, "double")
+
+    model = ModelTypes()
+    renderer = renderer_cpp.RendererCPP(model=model)
+    assert renderer.render_cpp_struct() == EXPECTED_CPP_STRUCT_TYPES
+
+    serialized = renderer.serialize_to_cpp(model=model)
+    assert len(serialized) == 22
+    assert renderer.deserialize_from_cpp(serizalized=serialized) == model
 

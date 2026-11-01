@@ -43,33 +43,65 @@ class TypeSourceCPP:
         return str(value)
 
 
-class TypeMapCPP(dict[type, TypeSourceCPP]):
-    def get2(self, type_var: typing.Any) -> TypeSourceCPP:
-        return self[type_var]
+TYPE_MAP_CPP_DEFAULTS: dict[object, str] = {
+    str: "char",
+    int: "uint32_t",
+    float: "float",
+}
+"""
+Default c++ type of a python type: May be overridden by 'SchemaExtra.cpp_type'.
+"""
 
-
-TYPE_MAP_CPP = TypeMapCPP(
-    {
-        str: TypeSourceCPP(
-            cpp_source="char {name}[32];",
-            ctypes_type=ctypes.c_char * 32,
-            to_ctypes=lambda value: value.encode("utf-8"),  # type: ignore[attr-defined]
-            from_ctypes=TypeSourceCPP.decode_c_string,
-        ),
-        int: TypeSourceCPP(
-            cpp_source="uint32_t {name};",
-            ctypes_type=ctypes.c_uint32,
-            to_ctypes=lambda value: ctypes.c_uint32(int(value)),  # type: ignore[call-overload]
-            from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
-        ),
-        float: TypeSourceCPP(
-            cpp_source="float {name};",
-            ctypes_type=ctypes.c_float,
-            to_ctypes=lambda value: ctypes.c_float(float(value)),  # type: ignore[attr-defined,arg-type]
-            from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
-        ),
-    }
-)
+TYPE_MAP_CPP: dict[str, TypeSourceCPP] = {
+    "char": TypeSourceCPP(
+        cpp_source="char {name}[32];",
+        ctypes_type=ctypes.c_char * 32,
+        to_ctypes=lambda value: value.encode("utf-8"),  # type: ignore[attr-defined]
+        from_ctypes=TypeSourceCPP.decode_c_string,
+    ),
+    "int16_t": TypeSourceCPP(
+        cpp_source="int16_t {name};",
+        ctypes_type=ctypes.c_int16,
+        to_ctypes=lambda value: ctypes.c_int16(int(value)),  # type: ignore[call-overload]
+        from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
+    ),
+    "int32_t": TypeSourceCPP(
+        cpp_source="int32_t {name};",
+        ctypes_type=ctypes.c_int32,
+        to_ctypes=lambda value: ctypes.c_int32(int(value)),  # type: ignore[call-overload]
+        from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
+    ),
+    "uint16_t": TypeSourceCPP(
+        cpp_source="uint16_t {name};",
+        ctypes_type=ctypes.c_uint16,
+        to_ctypes=lambda value: ctypes.c_uint16(int(value)),  # type: ignore[call-overload]
+        from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
+    ),
+    "uint32_t": TypeSourceCPP(
+        cpp_source="uint32_t {name};",
+        ctypes_type=ctypes.c_uint32,
+        to_ctypes=lambda value: ctypes.c_uint32(int(value)),  # type: ignore[call-overload]
+        from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
+    ),
+    "uint64_t": TypeSourceCPP(
+        cpp_source="uint64_t {name};",
+        ctypes_type=ctypes.c_uint64,
+        to_ctypes=lambda value: ctypes.c_uint64(int(value)),  # type: ignore[call-overload]
+        from_ctypes=lambda value: int(value),  # type: ignore[call-overload]
+    ),
+    "float": TypeSourceCPP(
+        cpp_source="float {name};",
+        ctypes_type=ctypes.c_float,
+        to_ctypes=lambda value: ctypes.c_float(float(value)),  # type: ignore[attr-defined,arg-type]
+        from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
+    ),
+    "double": TypeSourceCPP(
+        cpp_source="double {name};",
+        ctypes_type=ctypes.c_double,
+        to_ctypes=lambda value: ctypes.c_double(float(value)),  # type: ignore[attr-defined,arg-type]
+        from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
+    ),
+}
 
 
 class RendererCPP:
@@ -104,7 +136,7 @@ class RendererCPP:
 
             typedef struct __attribute__((packed)) {
                 char name[32];
-                uint32_t value;
+                uint16_t value;
                 float i_param;
             } ModelPidController_t;
 
@@ -143,7 +175,7 @@ class RendererCPP:
                 lines.append(f"    {{ {', '.join(var_names)} }},")
                 continue
 
-            if field.value_type not in TYPE_MAP_CPP:
+            if field.value_type not in TYPE_MAP_CPP_DEFAULTS:
                 raise ValueError(
                     f"Unsupported field type for '{field.field_name}': {field.value_type_name}"
                 )
@@ -186,7 +218,7 @@ class RendererCPP:
                     self._model_to_ctypes(element, element_instance)
                 continue
 
-            type_source = self._type_source_for_annotation(annotation)
+            type_source = self._type_source_for_field(field)
             setattr(
                 instance,
                 field.field_name,
@@ -214,7 +246,7 @@ class RendererCPP:
                 ]
                 continue
 
-            type_source = self._type_source_for_annotation(annotation)
+            type_source = self._type_source_for_field(field)
             model_data[field.field_name] = type_source.from_ctypes(raw_value)
 
         model_type = type(model)
@@ -250,10 +282,7 @@ class RendererCPP:
             element_name = typing.get_args(annotation)[0].__name__
             return f"{element_name}_t {field.field_name}[{cls._list_length(field)}];"
 
-        if annotation in TYPE_MAP_CPP:
-            return TYPE_MAP_CPP.get2(annotation).cpp_source.format(name=field.field_name)
-
-        raise ValueError(f"Unsupported field type for '{field.field_name}': {annotation}")
+        return cls._type_source_for_field(field).cpp_source.format(name=field.field_name)
 
     @staticmethod
     def _render_comment(field: FieldInfoIter) -> str:
@@ -290,7 +319,7 @@ class RendererCPP:
                 fields.append((field.field_name, element_ctypes * self._list_length(field)))
                 continue
 
-            ctypes_type = self._type_source_for_annotation(annotation).ctypes_type
+            ctypes_type = self._type_source_for_field(field).ctypes_type
             fields.append((field.field_name, ctypes_type))
 
         class SerializedModel(ctypes.Structure):
@@ -302,7 +331,11 @@ class RendererCPP:
         return SerializedModel
 
     @classmethod
-    def _type_source_for_annotation(cls, annotation: object) -> TypeSourceCPP:
-        if annotation not in TYPE_MAP_CPP:
-            raise ValueError(f"Unsupported field type for serialization: {annotation}")
-        return TYPE_MAP_CPP.get2(annotation)
+    def _type_source_for_field(cls, field: FieldInfoIter) -> TypeSourceCPP:
+        annotation = field.field_info.annotation
+        cpp_type = field.schema_extra.cpp_type or TYPE_MAP_CPP_DEFAULTS.get(annotation)
+        if cpp_type not in TYPE_MAP_CPP:
+            raise ValueError(
+                f"Unsupported field type for '{field.field_name}': {annotation}, cpp_type={cpp_type}"
+            )
+        return TYPE_MAP_CPP[cpp_type]

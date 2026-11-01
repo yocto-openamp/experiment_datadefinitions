@@ -24,6 +24,7 @@ class ModelPidController(pydantic.BaseModel):
         json_schema_extra=SchemaExtra(
             unit="steps (4096 steps = 1 revolution)",
             comment="Encoder steps",
+            cpp_type="uint16_t",
         ).dict,
     )
     i_param: float = pydantic.Field(
