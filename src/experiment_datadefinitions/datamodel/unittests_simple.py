@@ -15,6 +15,7 @@ class ModelPidController(pydantic.BaseModel):
         default="AxisXYZ",
         json_schema_extra=SchemaExtra(
             comment="Name of the controlled axis",
+            cpp_string_len=64,
         ).dict,
     )
     value: int = pydantic.Field(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import ctypes
 import typing
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import annotated_types
 from pydantic import BaseModel
@@ -54,8 +54,8 @@ Default c++ type of a python type: May be overridden by 'SchemaExtra.cpp_type'.
 
 TYPE_MAP_CPP: dict[str, TypeSourceCPP] = {
     "char": TypeSourceCPP(
-        cpp_source="char {name}[32];",
-        ctypes_type=ctypes.c_char * 32,
+        cpp_source="",  # See _type_source_for_field()
+        ctypes_type=ctypes.c_char,  # See _type_source_for_field()
         to_ctypes=lambda value: value.encode("utf-8"),  # type: ignore[attr-defined]
         from_ctypes=TypeSourceCPP.decode_c_string,
     ),
@@ -119,7 +119,7 @@ class RendererCPP:
             model_name = type(self.model).__name__
             raise ValueError(
                 f"Model '{model_name}' has no 'cpp_filename', which is required to name the generated files. "
-                f"Please add to class {model_name}: cpp_filename: typing.ClassVar[str] = \"my_filename\""
+                f'Please add to class {model_name}: cpp_filename: typing.ClassVar[str] = "my_filename"'
             ) from e
 
     @property
@@ -135,7 +135,7 @@ class RendererCPP:
         Render 'self.model' into something like:
 
             typedef struct __attribute__((packed)) {
-                char name[32];
+                char name[64];
                 uint16_t value;
                 float i_param;
             } ModelPidController_t;
@@ -171,7 +171,9 @@ class RendererCPP:
 
             if self._is_model_list(field.value_type):
                 element_name = typing.get_args(field.value_type)[0].__name__
-                var_names = [self._model_var_name(element_name)] * self._list_length(field)
+                var_names = [self._model_var_name(element_name)] * self._list_length(
+                    field
+                )
                 lines.append(f"    {{ {', '.join(var_names)} }},")
                 continue
 
@@ -229,20 +231,26 @@ class RendererCPP:
         instance = self.ctypes_model.from_buffer_copy(serizalized)
         return self._model_from_ctypes(self.model, instance)
 
-    def _model_from_ctypes(self, model: BaseModel, instance: ctypes.Structure) -> BaseModel:
+    def _model_from_ctypes(
+        self, model: BaseModel, instance: ctypes.Structure
+    ) -> BaseModel:
         model_data: dict[str, typing.Any] = {}
 
         for field in FieldInfoIter.iter_model(model):
             raw_value = getattr(instance, field.field_name)
             annotation = field.field_info.annotation
             if self._is_nested_model(annotation):
-                model_data[field.field_name] = self._model_from_ctypes(field.get_value(), raw_value)
+                model_data[field.field_name] = self._model_from_ctypes(
+                    field.get_value(), raw_value
+                )
                 continue
 
             if self._is_model_list(annotation):
                 model_data[field.field_name] = [
                     self._model_from_ctypes(element, element_instance)
-                    for element, element_instance in zip(field.get_value(), raw_value, strict=True)
+                    for element, element_instance in zip(
+                        field.get_value(), raw_value, strict=True
+                    )
                 ]
                 continue
 
@@ -282,7 +290,9 @@ class RendererCPP:
             element_name = typing.get_args(annotation)[0].__name__
             return f"{element_name}_t {field.field_name}[{cls._list_length(field)}];"
 
-        return cls._type_source_for_field(field).cpp_source.format(name=field.field_name)
+        return cls._type_source_for_field(field).cpp_source.format(
+            name=field.field_name
+        )
 
     @staticmethod
     def _render_comment(field: FieldInfoIter) -> str:
@@ -311,12 +321,16 @@ class RendererCPP:
         for field in FieldInfoIter.iter_model(model):
             annotation = field.field_info.annotation
             if self._is_nested_model(annotation):
-                fields.append((field.field_name, self._create_ctypes_model(field.get_value())))
+                fields.append(
+                    (field.field_name, self._create_ctypes_model(field.get_value()))
+                )
                 continue
 
             if self._is_model_list(annotation):
                 element_ctypes = self._create_ctypes_model(field.get_value()[0])
-                fields.append((field.field_name, element_ctypes * self._list_length(field)))
+                fields.append(
+                    (field.field_name, element_ctypes * self._list_length(field))
+                )
                 continue
 
             ctypes_type = self._type_source_for_field(field).ctypes_type
@@ -338,4 +352,12 @@ class RendererCPP:
             raise ValueError(
                 f"Unsupported field type for '{field.field_name}': {annotation}, cpp_type={cpp_type}"
             )
-        return TYPE_MAP_CPP[cpp_type]
+        type_source = TYPE_MAP_CPP[cpp_type]
+        if cpp_type == "char":
+            string_len = field.schema_extra.cpp_string_len
+            return replace(
+                type_source,
+                cpp_source=f"char {{name}}[{string_len}];",
+                ctypes_type=ctypes.c_char * string_len,
+            )
+        return type_source

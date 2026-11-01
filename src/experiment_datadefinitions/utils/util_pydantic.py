@@ -124,6 +124,11 @@ class SchemaExtra:
     Examples: %0.3f
     """
 
+    cpp_string_len: int = 32
+    """
+    Size in bytes of the c++ char array of a string, including the terminating zero.
+    """
+
     cpp_type: str | None = None
     """
     Overrides the default c++ type of the python type.

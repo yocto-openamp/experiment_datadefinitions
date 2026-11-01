@@ -21,7 +21,7 @@ def test_datamodel_fields_are_set() -> None:
 EXPECTED_CPP_STRUCT = """
 typedef struct __attribute__((packed)) {
     // Name of the controlled axis
-    char name[32];
+    char name[64];
     // [steps (4096 steps = 1 revolution)] Encoder steps
     uint16_t value;
     // [s] Integral gain (I) of the PID controller
@@ -86,6 +86,37 @@ def test_field_limits() -> None:
     assert (fields["limited"].minimum, fields["limited"].maximum) == (-2, 3)
     assert (fields["unlimited"].minimum, fields["unlimited"].maximum) == (None, None)
     assert (fields["only_ge"].minimum, fields["only_ge"].maximum) == (0, None)
+
+
+EXPECTED_CPP_STRUCT_STRINGS = """
+typedef struct __attribute__((packed)) {
+    char default_len[32];
+    char short_len[8];
+} ModelStrings_t;
+"""
+
+
+def test_renderer_cpp_string_len() -> None:
+    class ModelStrings(pydantic.BaseModel):
+        default_len: str = pydantic.Field(
+            default="abc",
+            json_schema_extra=SchemaExtra().dict,
+        )
+        short_len: str = pydantic.Field(
+            default="defg",
+            json_schema_extra=SchemaExtra(cpp_string_len=8).dict,
+        )
+
+    model = ModelStrings()
+    renderer = renderer_cpp.RendererCPP(model=model)
+    assert renderer.render_cpp_struct() == EXPECTED_CPP_STRUCT_STRINGS
+
+    serialized = renderer.serialize_to_cpp(model=model)
+    assert len(serialized) == 40
+    assert renderer.deserialize_from_cpp(serizalized=serialized) == model
+
+    with pytest.raises(ValueError):
+        renderer.serialize_to_cpp(model=ModelStrings(short_len="123456789"))
 
 
 EXPECTED_CPP_STRUCT_TYPES = """
