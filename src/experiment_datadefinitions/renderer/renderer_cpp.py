@@ -78,6 +78,25 @@ class RendererCPP:
         self.model = model
         self.ctypes_model = self._create_ctypes_model(self.model)
 
+    @property
+    def cpp_filename(self) -> str:
+        try:
+            return self.model.cpp_filename  # type: ignore[attr-defined]
+        except AttributeError as e:
+            model_name = type(self.model).__name__
+            raise ValueError(
+                f"Model '{model_name}' has no 'cpp_filename', which is required to name the generated files. "
+                f"Please add to class {model_name}: cpp_filename: typing.ClassVar[str] = \"my_filename\""
+            ) from e
+
+    @property
+    def filename_struct(self) -> str:
+        return f"generated_{self.cpp_filename}_struct.hpp"
+
+    @property
+    def filename_initializer(self) -> str:
+        return f"generated_{self.cpp_filename}_initializer.hpp"
+
     def render_cpp_struct(self) -> str:
         """
         Render 'self.model' into something like:

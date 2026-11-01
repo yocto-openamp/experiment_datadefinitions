@@ -1,3 +1,5 @@
+import typing
+
 import pydantic
 
 from experiment_datadefinitions.utils.util_pydantic import SchemaExtra
@@ -6,6 +8,11 @@ from . import unittests_simple
 
 
 class ModelSystemDual(pydantic.BaseModel):
+    cpp_filename: typing.ClassVar[str] = "system_dual"
+    """
+    Used to name the generated files, e.g. generated_system_dual_struct.hpp
+    """
+
     axis_x: unittests_simple.ModelPidController = pydantic.Field(
         default_factory=lambda :unittests_simple.ModelPidController(name="Axis X"),
     )

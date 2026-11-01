@@ -1,10 +1,10 @@
 #include "dump_values.hpp"
 
 #include "generated_pid_controller_struct.hpp"
-#include "generated_dual_struct.hpp"
+#include "generated_system_dual_struct.hpp"
 
 #include "generated_pid_controller_initializer.hpp"
-#include "generated_dual_initializer.hpp"
+#include "generated_system_dual_initializer.hpp"
 
 int main()
 {

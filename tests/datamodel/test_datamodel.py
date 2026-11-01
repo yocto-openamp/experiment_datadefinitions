@@ -1,4 +1,5 @@
 
+import pydantic
 import pytest
 
 from experiment_datadefinitions.datamodel import unittests_simple
@@ -56,4 +57,14 @@ def test_renderer_cpp() -> None:
     assert model3.name == model2.name
     assert model3.value == model2.value
     assert model3.i_param == pytest.approx(model2.i_param, rel=1e-6)
+
+
+def test_renderer_cpp_missing_cpp_filename() -> None:
+    class ModelWithoutFilename(pydantic.BaseModel):
+        value: int = 1
+
+    renderer = renderer_cpp.RendererCPP(model=ModelWithoutFilename())
+
+    with pytest.raises(ValueError, match="'ModelWithoutFilename' has no 'cpp_filename'"):
+        _ = renderer.filename_struct
 
