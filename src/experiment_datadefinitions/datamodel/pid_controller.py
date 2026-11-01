@@ -30,6 +30,7 @@ class ModelPidController(pydantic.BaseModel):
         json_schema_extra=SchemaExtra(
             unit="s",
             comment="Integral gain (I) of the PID controller",
+            format="%0.3f",
         ).dict,
     )
 

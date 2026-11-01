@@ -223,6 +223,7 @@ async def create_app() -> None:
         log = ui.log(max_lines=10).classes("w-full h-20")
         handler = util_logging.LogElementHandler(element=log, level=logging.DEBUG)
         logging.getLogger().addHandler(handler)
+        ui.context.client.on_delete(handler.delete)
     if True:
         ui.checkbox(
             "UART connected",

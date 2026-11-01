@@ -241,7 +241,6 @@ def create_float_field(
     field: FieldInfoIter,
 ) -> None:
     observable = observer.get_item(topic=topic)
-    unit = field.schema_extra.unit
 
     value = field.get_value()
 
@@ -252,7 +251,8 @@ def create_float_field(
             min=field.minimum,
             max=field.maximum,
             step=0.1,
-            suffix=unit,
+            suffix=field.schema_extra.unit,
+            format=field.schema_extra.format,
         )
         .props(PROPS_ENTRY)
         .props(f'hint="{field.schema_extra.comment}"')

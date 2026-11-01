@@ -118,6 +118,12 @@ class SchemaExtra:
 
     title_lookup: str | None = None
 
+    format: str | None = None
+    """
+    Format of a float in the GUI: The browser displays nothing if the result starts with ' ' or '+'
+    Examples: %0.3f
+    """
+
     cpp_type: str | None = None
     """
     Overrides the default c++ type of the python type.

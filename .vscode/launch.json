@@ -20,7 +20,8 @@
                 "experiment_datadefinitions.webui_mockup_a.webui:app",
                 "--reload"
             ],
-            "jinja": true
+            "jinja": true,
+            "justMyCode": false
         },
         {
             "name": "datamodel: Web UI",
@@ -38,7 +39,8 @@
                 "ENV_PIPE": "namedpipe",
                 // "ENV_FILE_POLLER": "pollfile",
             },
-            "jinja": true
+            "jinja": true,
+            "justMyCode": false
         }
     ]
 }

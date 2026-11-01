@@ -38,6 +38,10 @@ class LogElementHandler(logging.Handler):
         self.element = element
         super().__init__(level)
 
+    def delete(self) -> None:
+        """Stop logging: 'self.element' is deleted together with its client."""
+        logging.getLogger().removeHandler(self)
+
     def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)
