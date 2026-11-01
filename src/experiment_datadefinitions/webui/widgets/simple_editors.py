@@ -4,7 +4,6 @@ import html
 import logging
 import typing
 
-import annotated_types
 import nicegui
 import nicegui.binding
 import nicegui.element
@@ -161,8 +160,8 @@ def create_integer_field(
         ui.number(
             label=f"{field.title} (int)",
             value=value,
-            min=field.get_annotation(annotated_types.Ge).ge,  # type: ignore[arg-type]
-            max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
+            min=field.minimum,
+            max=field.maximum,
             step=1,
             suffix=unit,
         )
@@ -182,6 +181,11 @@ def create_slider_field(
     topic: str,
     field: FieldInfoIter,
 ) -> None:
+    if field.minimum is None or field.maximum is None:
+        # A slider requires limits
+        create_integer_field(observer=observer, topic=topic, field=field)
+        return
+
     observable = observer.get_item(topic=topic)
 
     ui.label(field.title).classes("min-w-24 font-medium leading-none p-0")
@@ -190,8 +194,8 @@ def create_slider_field(
     slider_element = (
         ui.slider(
             value=value,
-            min=field.get_annotation(annotated_types.Ge).ge,  # type: ignore[arg-type]
-            max=field.get_annotation(annotated_types.Le).le,  # type: ignore[arg-type]
+            min=field.minimum,
+            max=field.maximum,
             step=1,
         )
         .props(PROPS_ENTRY)
@@ -245,8 +249,8 @@ def create_float_field(
         ui.number(
             label=f"{field.title} (float)",
             value=value,
-            min=field.schema.get("minimum"),
-            max=field.schema.get("maximum"),
+            min=field.minimum,
+            max=field.maximum,
             step=0.1,
             suffix=unit,
         )

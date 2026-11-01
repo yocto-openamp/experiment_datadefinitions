@@ -6,6 +6,7 @@ import pytest
 
 from experiment_datadefinitions.datamodel import unittests_simple
 from experiment_datadefinitions.renderer import renderer_cpp
+from experiment_datadefinitions.utils import util_pydantic
 from experiment_datadefinitions.utils.util_pydantic import SchemaExtra
 
 
@@ -70,6 +71,21 @@ def test_renderer_cpp_missing_cpp_filename() -> None:
 
     with pytest.raises(ValueError, match="'ModelWithoutFilename' has no 'cpp_filename'"):
         _ = renderer.filename_struct
+
+
+def test_field_limits() -> None:
+    class ModelLimits(pydantic.BaseModel):
+        limited: int = pydantic.Field(default=1, ge=-2, le=3)
+        unlimited: int = 1
+        only_ge: int = pydantic.Field(default=1, ge=0)
+
+    fields = {
+        field.field_name: field
+        for field in util_pydantic.FieldInfoIter.iter_model(ModelLimits())
+    }
+    assert (fields["limited"].minimum, fields["limited"].maximum) == (-2, 3)
+    assert (fields["unlimited"].minimum, fields["unlimited"].maximum) == (None, None)
+    assert (fields["only_ge"].minimum, fields["only_ge"].maximum) == (0, None)
 
 
 EXPECTED_CPP_STRUCT_TYPES = """

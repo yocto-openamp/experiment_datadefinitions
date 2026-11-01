@@ -56,10 +56,35 @@ class FieldInfoIter:
         self,
         annotated_type: type[T],
     ) -> T:
+        annotation = self.find_annotation(annotated_type)
+        if annotation is None:
+            raise NotImplementedError()
+        return annotation
+
+    def find_annotation[T: annotated_types.BaseMetadata](
+        self,
+        annotated_type: type[T],
+    ) -> T | None:
         for j in self.field_info.metadata:
             if isinstance(j, annotated_type):
                 return j
-        raise NotImplementedError()
+        return None
+
+    @property
+    def minimum(self) -> typing.Any:
+        """
+        The limit 'ge' or None if there is no limit
+        """
+        annotation = self.find_annotation(annotated_types.Ge)
+        return None if annotation is None else annotation.ge
+
+    @property
+    def maximum(self) -> typing.Any:
+        """
+        The limit 'le' or None if there is no limit
+        """
+        annotation = self.find_annotation(annotated_types.Le)
+        return None if annotation is None else annotation.le
 
     def get_value(self) -> typing.Any:
         return getattr(self.model, self.field_name)
