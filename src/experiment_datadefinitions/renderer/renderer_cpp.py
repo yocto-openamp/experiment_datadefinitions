@@ -5,6 +5,7 @@ import typing
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import annotated_types
 from pydantic import BaseModel
 
 from experiment_datadefinitions.utils.util_pydantic import FieldInfoIter
@@ -112,21 +113,11 @@ class RendererCPP:
         lines = ["", "typedef struct __attribute__((packed)) {"]
 
         for field in FieldInfoIter.iter_model(self.model):
-            annotation = field.field_info.annotation
-            if self._is_nested_model(annotation):
-                cpp_decl = f"{field.value_type_name}_t {field.field_name};"
-            elif annotation in TYPE_MAP_CPP:
-                cpp_decl = TYPE_MAP_CPP.get2(annotation).cpp_source.format(name=field.field_name)
-            else:
-                raise ValueError(
-                    f"Unsupported field type for '{field.field_name}': {annotation}"
-                )
-
             comment = self._render_comment(field)
             if comment:
                 lines.append(f"    // {comment}")
 
-            lines.append(f"    {cpp_decl}")
+            lines.append(f"    {self._render_field_decl(field)}")
 
         struct_name = type(self.model).__name__
         lines.extend([f"}} {struct_name}_t;", ""])
@@ -144,6 +135,12 @@ class RendererCPP:
         for field in FieldInfoIter.iter_model(self.model):
             if self._is_nested_model(field.value_type):
                 lines.append(f"    {self._model_var_name(field.value_type_name)},")
+                continue
+
+            if self._is_model_list(field.value_type):
+                element_name = typing.get_args(field.value_type)[0].__name__
+                var_names = [self._model_var_name(element_name)] * self._list_length(field)
+                lines.append(f"    {{ {', '.join(var_names)} }},")
                 continue
 
             if field.value_type not in TYPE_MAP_CPP:
@@ -182,6 +179,13 @@ class RendererCPP:
                 self._model_to_ctypes(value, getattr(instance, field.field_name))
                 continue
 
+            if self._is_model_list(annotation):
+                for element, element_instance in zip(
+                    value, getattr(instance, field.field_name), strict=True
+                ):
+                    self._model_to_ctypes(element, element_instance)
+                continue
+
             type_source = self._type_source_for_annotation(annotation)
             setattr(
                 instance,
@@ -203,6 +207,13 @@ class RendererCPP:
                 model_data[field.field_name] = self._model_from_ctypes(field.get_value(), raw_value)
                 continue
 
+            if self._is_model_list(annotation):
+                model_data[field.field_name] = [
+                    self._model_from_ctypes(element, element_instance)
+                    for element, element_instance in zip(field.get_value(), raw_value, strict=True)
+                ]
+                continue
+
             type_source = self._type_source_for_annotation(annotation)
             model_data[field.field_name] = type_source.from_ctypes(raw_value)
 
@@ -212,6 +223,37 @@ class RendererCPP:
     @staticmethod
     def _is_nested_model(annotation: object) -> bool:
         return isinstance(annotation, type) and issubclass(annotation, BaseModel)
+
+    @classmethod
+    def _is_model_list(cls, annotation: object) -> bool:
+        return typing.get_origin(annotation) is list and cls._is_nested_model(
+            typing.get_args(annotation)[0]
+        )
+
+    @staticmethod
+    def _list_length(field: FieldInfoIter) -> int:
+        min_length = field.get_annotation(annotated_types.MinLen).min_length
+        max_length = field.get_annotation(annotated_types.MaxLen).max_length
+        if min_length != max_length:
+            raise ValueError(
+                f"List '{field.field_name}' requires min_length == max_length: {min_length} != {max_length}"
+            )
+        return max_length
+
+    @classmethod
+    def _render_field_decl(cls, field: FieldInfoIter) -> str:
+        annotation = field.field_info.annotation
+        if cls._is_nested_model(annotation):
+            return f"{field.value_type_name}_t {field.field_name};"
+
+        if cls._is_model_list(annotation):
+            element_name = typing.get_args(annotation)[0].__name__
+            return f"{element_name}_t {field.field_name}[{cls._list_length(field)}];"
+
+        if annotation in TYPE_MAP_CPP:
+            return TYPE_MAP_CPP.get2(annotation).cpp_source.format(name=field.field_name)
+
+        raise ValueError(f"Unsupported field type for '{field.field_name}': {annotation}")
 
     @staticmethod
     def _render_comment(field: FieldInfoIter) -> str:
@@ -241,6 +283,11 @@ class RendererCPP:
             annotation = field.field_info.annotation
             if self._is_nested_model(annotation):
                 fields.append((field.field_name, self._create_ctypes_model(field.get_value())))
+                continue
+
+            if self._is_model_list(annotation):
+                element_ctypes = self._create_ctypes_model(field.get_value()[0])
+                fields.append((field.field_name, element_ctypes * self._list_length(field)))
                 continue
 
             ctypes_type = self._type_source_for_annotation(annotation).ctypes_type

@@ -30,6 +30,11 @@ class ModelSystemDual(pydantic.BaseModel):
     )
 
 class ModelSystemList(pydantic.BaseModel):
+    cpp_filename: typing.ClassVar[str] = "system_list"
+    """
+    Used to name the generated files, e.g. generated_system_list_struct.hpp
+    """
+
     controllers: list[unittests_simple.ModelPidController] = pydantic.Field(
         min_length=2,
         max_length=2,
