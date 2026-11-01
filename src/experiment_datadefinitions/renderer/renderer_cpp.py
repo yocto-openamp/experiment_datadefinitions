@@ -76,7 +76,7 @@ class RendererCPP:
 
     def __init__(self, model: BaseModel) -> None:
         self.model = model
-        self.ctypes_model = self._create_ctypes_model()
+        self.ctypes_model = self._create_ctypes_model(self.model)
 
     def render_cpp_struct(self) -> str:
         """
@@ -87,12 +87,18 @@ class RendererCPP:
                 uint32_t value;
                 float i_param;
             } ModelPidController_t;
+
+        Nested models are only referenced: Their struct has to be defined upfront.
         """
         lines = ["", "typedef struct __attribute__((packed)) {"]
 
         for field in FieldInfoIter.iter_model(self.model):
             annotation = field.field_info.annotation
-            if annotation not in TYPE_MAP_CPP:
+            if self._is_nested_model(annotation):
+                cpp_decl = f"{field.value_type_name}_t {field.field_name};"
+            elif annotation in TYPE_MAP_CPP:
+                cpp_decl = TYPE_MAP_CPP.get2(annotation).cpp_source.format(name=field.field_name)
+            else:
                 raise ValueError(
                     f"Unsupported field type for '{field.field_name}': {annotation}"
                 )
@@ -101,7 +107,6 @@ class RendererCPP:
             if comment:
                 lines.append(f"    // {comment}")
 
-            cpp_decl = TYPE_MAP_CPP.get2(annotation).cpp_source.format(name=field.field_name)
             lines.append(f"    {cpp_decl}")
 
         struct_name = type(self.model).__name__
@@ -109,12 +114,19 @@ class RendererCPP:
         return "\n".join(lines)
 
     def render_cpp_initializer(self) -> str:
+        """
+        Nested models are only referenced: Their variable has to be defined upfront.
+        """
         struct_name = type(self.model).__name__
         var_name = self._model_var_name(struct_name)
 
         lines = ["", f"static const {struct_name}_t {var_name} = {{"]
 
         for field in FieldInfoIter.iter_model(self.model):
+            if self._is_nested_model(field.value_type):
+                lines.append(f"    {self._model_var_name(field.value_type_name)},")
+                continue
+
             if field.value_type not in TYPE_MAP_CPP:
                 raise ValueError(
                     f"Unsupported field type for '{field.field_name}': {field.value_type_name}"
@@ -139,28 +151,48 @@ class RendererCPP:
     def serialize_to_cpp(self, model: BaseModel) -> bytes:
         assert type(self.model) is type(model)
         instance = self.ctypes_model()
-        for field in FieldInfoIter.iter_model(self.model):
-            value = getattr(model, field.field_name)
-            type_source = self._type_source_for_annotation(field.field_info.annotation)
+        self._model_to_ctypes(model, instance)
+        return bytes(instance)
+
+    def _model_to_ctypes(self, model: BaseModel, instance: ctypes.Structure) -> None:
+        for field in FieldInfoIter.iter_model(model):
+            value = field.get_value()
+            annotation = field.field_info.annotation
+            if self._is_nested_model(annotation):
+                # Accessing a nested ctypes structure returns a view into 'instance'
+                self._model_to_ctypes(value, getattr(instance, field.field_name))
+                continue
+
+            type_source = self._type_source_for_annotation(annotation)
             setattr(
                 instance,
                 field.field_name,
                 type_source.to_ctypes(value),
             )
 
-        return bytes(instance)
-
     def deserialize_from_cpp(self, serizalized: bytes) -> BaseModel:
         instance = self.ctypes_model.from_buffer_copy(serizalized)
-        model_data = {}
+        return self._model_from_ctypes(self.model, instance)
 
-        for field in FieldInfoIter.iter_model(self.model):
+    def _model_from_ctypes(self, model: BaseModel, instance: ctypes.Structure) -> BaseModel:
+        model_data: dict[str, typing.Any] = {}
+
+        for field in FieldInfoIter.iter_model(model):
             raw_value = getattr(instance, field.field_name)
-            type_source = self._type_source_for_annotation(field.field_info.annotation)
+            annotation = field.field_info.annotation
+            if self._is_nested_model(annotation):
+                model_data[field.field_name] = self._model_from_ctypes(field.get_value(), raw_value)
+                continue
+
+            type_source = self._type_source_for_annotation(annotation)
             model_data[field.field_name] = type_source.from_ctypes(raw_value)
 
-        model_type = type(self.model)
+        model_type = type(model)
         return model_type(**model_data)
+
+    @staticmethod
+    def _is_nested_model(annotation: object) -> bool:
+        return isinstance(annotation, type) and issubclass(annotation, BaseModel)
 
     @staticmethod
     def _render_comment(field: FieldInfoIter) -> str:
@@ -181,13 +213,17 @@ class RendererCPP:
             chars.append(char.lower())
         return "".join(chars)
 
-    def _create_ctypes_model(self) -> type[ctypes.Structure]:
+    def _create_ctypes_model(self, model: BaseModel) -> type[ctypes.Structure]:
         """
         Create the ctypes structure matching the packed C layout of the model.
         """
-        fields = []
-        for field in FieldInfoIter.iter_model(self.model):
+        fields: list[tuple[str, typing.Any]] = []
+        for field in FieldInfoIter.iter_model(model):
             annotation = field.field_info.annotation
+            if self._is_nested_model(annotation):
+                fields.append((field.field_name, self._create_ctypes_model(field.get_value())))
+                continue
+
             ctypes_type = self._type_source_for_annotation(annotation).ctypes_type
             fields.append((field.field_name, ctypes_type))
 
