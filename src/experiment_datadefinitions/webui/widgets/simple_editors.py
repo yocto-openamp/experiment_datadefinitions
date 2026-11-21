@@ -279,6 +279,7 @@ class TypeMapNiceGUI(
 TYPE_MAP_NICE_GUI = TypeMapNiceGUI(
     {
         str: create_text_field,
+        bool: create_integer_field,
         int: create_integer_field,
         float: create_float_field,
     }
