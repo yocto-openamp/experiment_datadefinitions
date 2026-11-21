@@ -46,6 +46,7 @@ class TypeSourceCPP:
 TYPE_MAP_CPP_DEFAULTS: dict[object, str] = {
     str: "char",
     int: "uint32_t",
+    bool: "uint16_t",
     float: "float",
 }
 """
@@ -58,6 +59,12 @@ TYPE_MAP_CPP: dict[str, TypeSourceCPP] = {
         ctypes_type=ctypes.c_char,  # See _type_source_for_field()
         to_ctypes=lambda value: value.encode("utf-8"),  # type: ignore[attr-defined]
         from_ctypes=TypeSourceCPP.decode_c_string,
+    ),
+    "bool": TypeSourceCPP(
+        cpp_source="bool {name};",
+        ctypes_type=ctypes.c_int16,
+        to_ctypes=lambda value: ctypes.c_int16(float(value)),  # type: ignore[attr-defined,arg-type]
+        from_ctypes=lambda value: float(value),  # type: ignore[arg-type]
     ),
     "int16_t": TypeSourceCPP(
         cpp_source="int16_t {name};",
